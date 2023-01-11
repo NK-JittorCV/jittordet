@@ -1,0 +1,15 @@
+_base_:
+  - ./base.yml
+
+
+model:
+  type: 'OneStageFramework'
+  data_preprocessor:
+    _cover_: True
+    type: 'a'
+    env: '$NUM_CLASSES:80'
+    env2: '{$DATASETS:/default/path}/coco/{$SUBPATH:/subpath}'
+    mean: 'b'
+    std: 'c'
+  bbox_head:
+    mean: [0, 0, 0]
