@@ -18,8 +18,7 @@ from jittordet.engine import DATASETS
 
 @DATASETS.register_module()
 class COCODataset(BaseDetDataset):
-    """ COCO Dataset.
-    """
+    """ COCO Dataset for JittorDet."""
 
     CLASSES = ('person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus',
                'train', 'truck', 'boat', 'traffic light', 'fire hydrant',
@@ -54,49 +53,23 @@ class COCODataset(BaseDetDataset):
     
     
     def get_ann_info(self, idx):
-        """Get COCO annotation by index.
-
-        Args:
-            idx (int): Index of data.
-
-        Returns:
-            dict: Annotation info of specified index.
-        """
-
+        """Get COCO annotation by index."""
         img_id = self.data_infos[idx]['id']
         ann_ids = self.coco.getAnnIds(imgIds=[img_id])
         ann_info = self.coco.loadAnns(ann_ids)
-        return self._parse_ann_info(self.data_infos[idx], ann_info)
+        return self._parse(self.data_infos[idx], ann_info)
     
     
     def get_cat_ids(self, idx):
-        """Get COCO category ids by index.
-
-        Args:
-            idx (int): Index of data.
-
-        Returns:
-            list[int]: All categories in the image of specified index.
-        """
-
+        """Get COCO category ids by index."""
         img_id = self.data_infos[idx]['id']
         ann_ids = self.coco.getAnnIds(imgIds=[img_id])
         ann_info = self.coco.loadAnns(ann_ids)
         return [ann['category_id'] for ann in ann_info]
     
     
-    def _parse_ann_info(self, img_info, ann_info):
-        """Parse bbox and mask annotation.
-
-        Args:
-            ann_info (list[dict]): Annotation info of an image.
-            with_mask (bool): Whether to parse mask annotations.
-
-        Returns:
-            dict: A dict containing the following keys: bboxes, bboxes_ignore,\
-                labels, masks, seg_map. "masks" are raw annotations and not \
-                decoded into binary masks.
-        """
+    def _parse(self, img_info, ann_info):
+        """Parse bbox and mask annotation."""
         gt_bboxes = []
         gt_labels = []
         gt_bboxes_ignore = []
@@ -193,34 +166,7 @@ class COCODataset(BaseDetDataset):
                  proposal_nums=(100, 300, 1000),
                  iou_thrs=None,
                  metric_items=None):
-        """Evaluation in COCO protocol.
-        Args:
-            results (list[list | tuple]): Testing results of the dataset.
-            metric (str | list[str]): Metrics to be evaluated. Options are
-                'bbox', 'segm', 'proposal', 'proposal_fast'.
-            logger (logging.Logger | str | None): Logger used for printing
-                related information during evaluation. Default: None.
-            jsonfile_prefix (str | None): The prefix of json files. It includes
-                the file path and the prefix of filename, e.g., "a/b/prefix".
-                If not specified, a temp file will be created. Default: None.
-            classwise (bool): Whether to evaluating the AP for each class.
-            proposal_nums (Sequence[int]): Proposal number used for evaluating
-                recalls, such as recall@100, recall@1000.
-                Default: (100, 300, 1000).
-            iou_thrs (Sequence[float], optional): IoU threshold used for
-                evaluating recalls/mAPs. If set to a list, the average of all
-                IoUs will also be computed. If not specified, [0.50, 0.55,
-                0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95] will be used.
-                Default: None.
-            metric_items (list[str] | str, optional): Metric items that will
-                be returned. If not specified, ``['AR@100', 'AR@300',
-                'AR@1000', 'AR_s@1000', 'AR_m@1000', 'AR_l@1000' ]`` will be
-                used when ``metric=='proposal'``, ``['mAP', 'mAP_50', 'mAP_75',
-                'mAP_s', 'mAP_m', 'mAP_l']`` will be used when
-                ``metric=='bbox' or metric=='segm'``.
-        Returns:
-            dict[str, float]: COCO style evaluation metric.
-        """
+        """Evaluation in COCO protocol."""
         save_file = build_file(work_dir,prefix=f"detections/val_{epoch}.json")
         
         self.save_results(results,save_file)
