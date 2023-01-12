@@ -5,6 +5,7 @@ try:
 except:
     warnings.warn("pycocotools is not installed!")
 
+import os
 import json
 import itertools
 import numpy as np 
@@ -12,8 +13,20 @@ from collections import OrderedDict
 from terminaltables import AsciiTable
 
 from .base import BaseDetDataset
-from .utils import build_file
 from jittordet.engine import DATASETS
+
+
+def build_file(work_dir,prefix):
+    """ build file and makedirs the file parent path """
+    work_dir = os.path.abspath(work_dir)
+    prefixes = prefix.split("/")
+    file_name = prefixes[-1]
+    prefix = "/".join(prefixes[:-1])
+    if len(prefix)>0:
+        work_dir = os.path.join(work_dir,prefix)
+    os.makedirs(work_dir,exist_ok=True)
+    file = os.path.join(work_dir,file_name)
+    return file 
 
 
 @DATASETS.register_module()
