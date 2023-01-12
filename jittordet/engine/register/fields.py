@@ -8,3 +8,4 @@ SCHEDULERS = Register('SCHEDULERS')
 
 DATASETS = Register('DATASETS')
 MODELS = Register('MODELS')
+TRANSFORM = Register('transform')
