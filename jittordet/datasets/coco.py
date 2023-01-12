@@ -322,8 +322,8 @@ class COCODataset(BaseDetDataset):
 
 
 def test_cocodataset():
-    from .piplines import LoadImageFromFile,LoadAnnotations,DefaultFormatBundle, Collect
-    from .piplines import Pad, Resize, RandomFlip, Normalize
+    from .transforms import LoadImageFromFile,LoadAnnotations,DefaultFormatBundle, Collect
+    from .transforms import Pad, Resize, RandomFlip, Normalize
     img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
     dataset = COCODataset(img_prefix='data/coco/val2017/',
                           ann_file="data/coco/annotations/instances_val2017.json",
