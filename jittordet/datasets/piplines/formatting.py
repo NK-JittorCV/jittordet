@@ -80,12 +80,12 @@ class Collect:
 class WrapFieldsToLists:
     """Wrap fields of the data dictionary into lists for evaluation."""
 
-    def __call__(self, results):
+    def __call__(self, data: dict) -> dict:
         """Call function to wrap fields into lists."""
         # Wrap dict fields into lists
-        for key, val in results.items():
-            results[key] = [val]
-        return results
+        for key, val in data.items():
+            data[key] = [val]
+        return data
 
     def __repr__(self):
         return f'{self.__class__.__name__}()'
