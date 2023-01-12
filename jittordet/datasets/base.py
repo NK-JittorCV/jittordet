@@ -8,8 +8,7 @@ from .piplines.transforms import Compose
 
 @DATASETS.register_module()
 class BaseDetDataset(Dataset):
-    """Base dataset for JittorDet.
-    """
+    """Base dataset for JittorDet."""
     
     CLASSES = None
     
@@ -88,48 +87,24 @@ class BaseDetDataset(Dataset):
     
     
     def get_ann_info(self, idx):
-        """Get annotation by index.
-
-        Args:
-            idx (int): Index of data.
-
-        Returns:
-            dict: Annotation info of specified index.
-        """
-
+        """Get annotation by index."""
         return self.data_infos[idx]['ann']
     
     
     def get_cat_ids(self, idx):
-        """Get category ids by index.
-
-        Args:
-            idx (int): Index of data.
-
-        Returns:
-            list[int]: All categories in the image of specified index.
-        """
-
+        """Get category ids by index."""
         return self.data_infos[idx]['ann']['labels'].astype(np.int).tolist()
     
     
-    def pre_transforms(self, results):
+    def pre_transforms(self, data):
         """Prepare results dict for pipeline."""
-        results['img_prefix'] = self.img_prefix
-        results['proposal_file'] = self.proposal_file
-        results['bbox_fields'] = []
+        data['img_prefix'] = self.img_prefix
+        data['proposal_file'] = self.proposal_file
+        data['bbox_fields'] = []
     
     
     def __getitem__(self, idx):
-        """Get training/test data after pipeline.
-
-        Args:
-            idx (int): Index of data.
-
-        Returns:
-            dict: Training/test data (with annotation if `test_mode` is set \
-                True).
-        """
+        """Get training/test data after pipeline."""
 
         if self.test_mode:
             return self.prepare_test_img(idx)
@@ -161,16 +136,7 @@ class BaseDetDataset(Dataset):
     
     
     def prepare_train_img(self, idx):
-        """Get training data and annotations after pipeline.
-
-        Args:
-            idx (int): Index of data.
-
-        Returns:
-            dict: Training data and annotation after pipeline with new keys \
-                introduced by pipeline.
-        """
-
+        """Get training data and annotations after pipeline."""
         img_info = self.data_infos[idx]
         ann_info = self.get_ann_info(idx)
         results = dict(img_info=img_info, ann_info=ann_info)
@@ -181,15 +147,7 @@ class BaseDetDataset(Dataset):
 
 
     def prepare_test_img(self, idx):
-        """Get testing data after pipeline.
-
-        Args:
-            idx (int): Index of data.
-
-        Returns:
-            dict: Testing data after pipeline with new keys introduced by \
-                pipeline.
-        """
+        """Get testing data after pipeline."""
 
         img_info = self.data_infos[idx]
         results = dict(img_info=img_info)
@@ -201,18 +159,7 @@ class BaseDetDataset(Dataset):
     
     @classmethod
     def get_classes(cls, classes=None):
-        """Get class names of current dataset.
-
-        Args:
-            classes (Sequence[str] | str | None): If classes is None, use
-                default CLASSES defined by builtin dataset. If classes is a
-                string, take it as a file name. The file contains the name of
-                classes where each line contains one class name. If classes is
-                a tuple or list, override the CLASSES defined by the dataset.
-
-        Returns:
-            tuple[str] or list[str]: Names of categories of the dataset.
-        """
+        """Get class names of current dataset."""
         if classes is None:
             return cls.CLASSES
         
@@ -221,6 +168,7 @@ class BaseDetDataset(Dataset):
         else:
             raise ValueError(f'Unsupported type {type(classes)} of classes.')
         return class_names
+    
     
     def _filter_imgs(self, min_size=32):
         """Filter images too small."""
@@ -233,6 +181,7 @@ class BaseDetDataset(Dataset):
                 valid_inds.append(i)
         return valid_inds
     
+    
     def _set_group_flag(self):
         """Set flag according to image aspect ratio.
 
@@ -244,6 +193,7 @@ class BaseDetDataset(Dataset):
             img_info = self.data_infos[i]
             if img_info['width'] / img_info['height'] > 1:
                 self.flag[i] = 1
+    
     
     def _rand_another(self, idx):
         """Get another random index from the same group as the given index."""
