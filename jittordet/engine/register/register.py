@@ -1,4 +1,4 @@
-# copy from openmmlab mmengine
+# modified from openmmlab mmengine
 # https://github.com/open-mmlab/mmengine/blob/main/mmengine/registry/registry.py
 
 import copy
@@ -27,10 +27,6 @@ class Register:
     @property
     def name(self):
         return self._name
-
-    @property
-    def scope(self):
-        return self._scope
 
     @property
     def module_dict(self):

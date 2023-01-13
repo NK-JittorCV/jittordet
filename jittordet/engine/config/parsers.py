@@ -1,10 +1,12 @@
 import os
+import os.path as osp
 import re
 
 from .utils import iter_leaves, set_leaf
 
 
 def env_variable_parsers(cfg):
+    """use environment variables in cfg."""
     regexp1 = r'^\s*\$(\w+)\s*\:\s*(\S*?)\s*$'
     regexp2 = r'\{\s*\$(\w+)\s*\:\s*(\S*?)\s*\}'
     for keys, value in iter_leaves(cfg):
@@ -31,4 +33,32 @@ def env_variable_parsers(cfg):
         set_leaf(cfg, keys, value)
 
 
-cfg_parsers = [env_variable_parsers]
+def default_var_parsers(cfg):
+    """set some default value in cfg."""
+    filename = cfg['filename']
+    file_dirname = osp.dirname(filename)
+    file_basename = osp.basename(filename)
+    file_basename_no_extension = osp.splitext(file_basename)[0]
+    file_extname = osp.splitext(filename)[1]
+    support_templates = dict(
+        fileDirname=file_dirname,
+        fileBasename=file_basename,
+        fileBasenameNoExtension=file_basename_no_extension,
+        fileExtname=file_extname)
+
+    for keys, value in iter_leaves(cfg):
+        if not isinstance(value, str):
+            continue
+
+        for k, v in support_templates.items():
+            regexp = r'\{\s*' + str(k) + r'\s*\}'
+            v = v.replace('\\', '/')
+            value = re.sub(regexp, v, value)
+
+        set_leaf(cfg, keys, value)
+
+
+cfg_parsers = [
+    env_variable_parsers,
+    default_var_parsers,
+]
