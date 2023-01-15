@@ -74,7 +74,7 @@ class Register:
 
         return _register
 
-    def build(self, cfg, default_args):
+    def build(self, cfg, **default_args):
         if not isinstance(cfg, dict):
             raise TypeError(f'cfg should be a dict, but got {type(cfg)}')
 

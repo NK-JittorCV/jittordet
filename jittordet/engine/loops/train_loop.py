@@ -1,6 +1,8 @@
+from ..register import LOOPS
 from .base_loop import BaseLoop
 
 
+@LOOPS.register_module()
 class EpochTrainLoop(BaseLoop):
 
     def __init__(self, runner, max_epoch, val_interval=1):
@@ -14,10 +16,10 @@ class EpochTrainLoop(BaseLoop):
     def run(self):
         self.runner.call_hook('before_train')
         # setup scheduler last_step from -1 to 0
-        for scheduler in self.runner.schedulers:
-            scheduler.step()
+        for _scheduler in self.runner.scheduler:
+            _scheduler.step()
 
-        while self._epoch < self._max_epochs:
+        while self._epoch < self.max_epoch:
             self.run_epoch()
 
             if self._epoch % self.val_interval == 0:
@@ -34,9 +36,9 @@ class EpochTrainLoop(BaseLoop):
         for idx, data_batch in enumerate(self.runner.train_dataset):
             self.run_iter(idx, data_batch)
 
-        for scheduler in self.runner.schedulers:
-            if not getattr(scheduler, 'by_iter', False):
-                scheduler.step()
+        for _scheduler in self.runner.scheduler:
+            if not getattr(_scheduler, 'by_iter', False):
+                _scheduler.step()
 
         self.runner.call_hook('after_train_epoch')
         self._epoch += 1
@@ -48,10 +50,10 @@ class EpochTrainLoop(BaseLoop):
 
         outputs = self.runner.model(**data_batch, phase='loss')
         self.runner.optimizer.step(outputs['loss'])
-        for scheduler in self.runner.schedulers:
+        for _scheduler in self.runner.scheduler:
             # for warmup scheduler
-            if getattr(scheduler, 'by_iter', False):
-                scheduler.step()
+            if getattr(_scheduler, 'by_iter', False):
+                _scheduler.step()
 
         self.runner.call_hook(
             'after_train_iter',

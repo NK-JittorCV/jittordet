@@ -34,6 +34,7 @@ class Runner:
                  scheduler=None,
                  hooks=None,
                  randomness=None,
+                 disable_cuda=False,
                  resume_from=None,
                  load_from=None,
                  experiment_name=None,
@@ -51,21 +52,25 @@ class Runner:
         # set random seed and other randomness related setting
         self.setup_randomness(randomness)
 
+        timestamp = jt.Var(time.time())
+        if jt.in_mpi:
+            timestamp = timestamp.mpi_broadcast(root=0)
         self._time_stamp = time.strftime('%Y%m%d_%H%M%S',
-                                         time.localtime(time.item()))
+                                         time.localtime(timestamp.item()))
 
         # setup experiment name
         if experiment_name is not None:
-            self._experiment_name = f'{experiment_name}_{self._timestamp}'
+            self._experiment_name = f'{experiment_name}_{self._time_stamp}'
         elif self.cfg.filename is not None:
             filename_no_ext = osp.splitext(osp.basename(self.cfg.filename))[0]
-            self._experiment_name = f'{filename_no_ext}_{self._timestamp}'
+            self._experiment_name = f'{filename_no_ext}_{self._time_stamp}'
         else:
-            self._experiment_name = self._timestamp
+            self._experiment_name = self._time_stamp
 
         # setup hooks
         self.setup_hooks(hooks)
 
+        self.disable_cuda = disable_cuda
         self._load_from = load_from
         self._resume_from = resume_from
         self.logger = None
@@ -107,6 +112,7 @@ class Runner:
             scheduler=cfg.get('scheduler'),
             hooks=cfg.get('hooks'),
             randomness=cfg.get('randomness'),
+            disable_cuda=cfg.get('disable_cuda', False),
             resume_from=cfg.get('resume_from'),
             load_from=cfg.get('load_from'),
             experiment_name=cfg.get('experiment_name'),
@@ -121,8 +127,8 @@ class Runner:
     def time_stamp(self):
         return self._time_stamp
 
-    def init_model_weights(self, model):
-        for module in model.children():
+    def init_model_weights(self):
+        for module in self.model.children():
             if hasattr(module, 'init_weights'):
                 module.init_weights()
 
@@ -195,8 +201,10 @@ class Runner:
     def train(self):
         log_dir = osp.join(self.work_dir, self.time_stamp + '_train')
         log_file = osp.join(log_dir, self.time_stamp + '.log')
+        if jt.rank == 0 and not osp.exists(log_dir):
+            os.makedirs(log_dir)
         self.log_dir = log_dir
-        self.logger = get_logger(name='jittordet', log_flie=log_file)
+        self.logger = get_logger(name='jittordet', log_file=log_file)
 
         train_related = (self.train_dataset, self.train_loop, self.optimizer,
                          self.scheduler)
@@ -219,7 +227,9 @@ class Runner:
 
         # initialization
         self.init_model_weights()
-        self.load_or_resume()
+        # self.load_or_resume()
+        if not self.disable_cuda:
+            jt.flags.use_cuda = 1
 
         # start run
         self.train_loop.run()
@@ -227,6 +237,7 @@ class Runner:
     def val(self):
         log_dir = osp.join(self.work_dir, self.time_stamp + '_val')
         log_file = osp.join(log_dir, self.time_stamp + '.log')
+        os.makedirs(log_dir)
         self.log_dir = log_dir
         self.logger = get_logger(name='jittordet', log_flie=log_file)
 
@@ -247,6 +258,7 @@ class Runner:
     def test(self):
         log_dir = osp.join(self.work_dir, self.time_stamp + '_test')
         log_file = osp.join(log_dir, self.time_stamp + '.log')
+        os.makedirs(log_dir)
         self.log_dir = log_dir
         self.logger = get_logger(name='jittordet', log_flie=log_file)
 
@@ -277,8 +289,11 @@ class Runner:
         pass
 
     def setup_hooks(self, hooks):
+        if hooks is None:
+            hooks = []
         assert isinstance(hooks, list)
-        default_hooks = [dict(type='LoggerHook'), dict(type='CheckPointHook')]
+
+        default_hooks = [dict(type='LoggerHook'), dict(type='CheckpointHook')]
         hook_keys = [hook['type'] for hook in hooks]
         for hook in default_hooks:
             if hook['type'] not in hook_keys:
