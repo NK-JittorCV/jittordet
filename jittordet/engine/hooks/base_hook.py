@@ -46,11 +46,11 @@ class BaseHook:
         self._before_iter(
             runner, batch_idx=batch_idx, data_batch=data_batch, mode='train')
 
-    def before_val_iter(self, runner, batch_idx, data_batch):
+    def before_val_iter(self, runner, batch_idx, data_batch=None):
         self._before_iter(
             runner, batch_idx=batch_idx, data_batch=data_batch, mode='val')
 
-    def before_test_iter(self, runner, batch_idx: int, data_batch=None):
+    def before_test_iter(self, runner, batch_idx, data_batch=None):
         self._before_iter(
             runner, batch_idx=batch_idx, data_batch=data_batch, mode='test')
 
@@ -111,20 +111,5 @@ class BaseHook:
                     mode='train'):
         pass
 
-    def every_n_epochs(self, runner, n):
-        return (runner.epoch + 1) % n == 0 if n > 0 else False
-
-    def every_n_inner_iters(self, batch_idx, n):
-        return (batch_idx + 1) % n == 0 if n > 0 else False
-
-    def every_n_train_iters(self, runner, n):
-        return (runner.iter + 1) % n == 0 if n > 0 else False
-
-    def end_of_epoch(self, dataloader, batch_idx):
-        return batch_idx + 1 == len(dataloader)
-
-    def is_last_train_epoch(self, runner):
-        return runner.epoch + 1 == runner.max_epochs
-
-    def is_last_train_iter(self, runner):
-        return runner.iter + 1 == runner.max_iters
+    def every_n_interval(self, idx, n):
+        return (idx + 1) % n == 0 if n > 0 else False

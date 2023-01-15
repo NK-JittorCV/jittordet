@@ -127,6 +127,10 @@ class Runner:
     def time_stamp(self):
         return self._time_stamp
 
+    @property
+    def experiment_name(self):
+        return self._experiment_name
+
     def init_model_weights(self):
         for module in self.model.children():
             if hasattr(module, 'init_weights'):
@@ -145,7 +149,7 @@ class Runner:
             return dataset
         elif isinstance(dataset, dict):
 
-            return DATASETS.build(dataset, drop_last=jt.in_mpi)
+            return DATASETS.build(dataset)
         else:
             raise TypeError(
                 'dataset should be a jittor.dataset.Dataset object or dict')

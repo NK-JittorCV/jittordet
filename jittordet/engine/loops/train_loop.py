@@ -7,8 +7,8 @@ class EpochTrainLoop(BaseLoop):
 
     def __init__(self, runner, max_epoch, val_interval=1):
         super().__init__(runner=runner)
-        self.max_epoch = max_epoch
         self.val_interval = val_interval
+        self._max_epoch = max_epoch
         self._epoch = 0
         self._iter = 0
         pass
@@ -19,7 +19,7 @@ class EpochTrainLoop(BaseLoop):
         for _scheduler in self.runner.scheduler:
             _scheduler.step()
 
-        while self._epoch < self.max_epoch:
+        while self._epoch < self._max_epoch:
             self.run_epoch()
 
             if self._epoch % self.val_interval == 0:
