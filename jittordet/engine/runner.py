@@ -185,6 +185,9 @@ class Runner:
                 scheduler = SCHEDULERS.build(scheduler, optimizer=optimizer)
             param_schedulers.append(scheduler)
 
+        # setup scheduler last_step from -1 to 0
+        for scheduler in param_schedulers:
+            scheduler.step()
         return param_schedulers
 
     def build_loop(self, loop):
@@ -296,13 +299,52 @@ class Runner:
             self.resume(self._resume_from)
 
     def resume(self, checkpoint):
-        pass
+        data = jt.load(checkpoint)
+        model_state_dict = data['state_dict']
+        self.model.load_state_dict(model_state_dict)
+
+        # load train_loop info
+        if self.train_loop is not None and 'loop' in data:
+            self.train_loop.load_state_dict(data['loop'])
+
+        # load optimizer info
+        if self.optimizer is not None and 'optimizer' in data:
+            self.optimizer.load_state_dict(data['optimizer'])
+
+        # load scheduler info
+        if self.scheduler is not None and 'scheduler' in data:
+            for scheduler in self.scheduler:
+                scheduler_name = scheduler.__class__.__name__
+                if scheduler_name in data['scheduler']:
+                    scheduler.load_state_dict(
+                        data['scheduler'][scheduler_name])
 
     def load(self, checkpoint):
-        pass
+        data = jt.load(checkpoint)
+        model_state_dict = data['state_dict']
+        self.model.load_state_dict(model_state_dict)
 
-    def save_checkpoint(self, filepath, with_meta=True):
-        pass
+    @jt.single_process_scope()
+    def save_checkpoint(self, filepath, end_epoch=True):
+        data = dict()
+        data['state_dict'] = self.model.state_dict()
+
+        # train_loop info
+        loop_state_dict = self.train_loop.state_dict()
+        if end_epoch:
+            loop_state_dict['epoch'] += 1
+        data['loop'] = loop_state_dict
+
+        # optimizer info
+        data['optimizer'] = self.optimizer.state_dict()
+
+        # scheduler info
+        scheduler_state_dict = dict()
+        for scheduler in self.scheduler:
+            scheduler_name = scheduler.__class__.__name__
+            scheduler_state_dict[scheduler_name] = scheduler.state_dict()
+        data['scheduler'] = scheduler_state_dict
+        jt.save(data, filepath)
 
     def setup_hooks(self, hooks):
         if hooks is None:

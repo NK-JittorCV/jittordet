@@ -28,3 +28,11 @@ class BaseLoop(metaclass=ABCMeta):
     @abstractmethod
     def run(self):
         pass
+
+    def state_dict(self):
+        return dict(epoch=self._epoch, iter=self._iter)
+
+    def load_state_dict(self, data):
+        assert isinstance(data, dict)
+        self._epoch = data['epoch']
+        self._iter = data['iter']

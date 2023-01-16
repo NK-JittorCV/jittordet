@@ -12,9 +12,6 @@ class EpochTrainLoop(BaseLoop):
 
     def run(self):
         self.runner.call_hook('before_train')
-        # setup scheduler last_step from -1 to 0
-        for _scheduler in self.runner.scheduler:
-            _scheduler.step()
 
         while self._epoch < self._max_epoch:
             self.run_epoch()

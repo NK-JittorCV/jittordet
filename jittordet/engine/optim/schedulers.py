@@ -1,21 +1,29 @@
-import inspect
-
 import jittor.lr_scheduler as scheduler
 
 from ..register import SCHEDULERS
 
 
-def register_jittor_scheduler():
-    for name, module in scheduler.__dict__.items():
-        if inspect.isclass(module) and 'LR' in name:
-            SCHEDULERS.register_module(name=name, module=module)
+@SCHEDULERS.register_module()
+class BaseScheduler:
 
+    def state_dict(self):
+        state_dict = {}
+        exclude = ['optimizer']
+        for key, value in self.__dict__.items():
+            if key in exclude or callable(value):
+                continue
+            state_dict[key] = value
+        return state_dict
 
-register_jittor_scheduler()
+    def load_state_dict(self, data):
+        assert isinstance(data, dict)
+        for key, value in data.items():
+            if key in self.__dict__:
+                self.__dict__[key] = value
 
 
 @SCHEDULERS.register_module()
-class WarmUpLR:
+class WarmUpLR(BaseScheduler):
     """Copy from JDet. Warm LR scheduler, which is the base lr_scheduler,
     default we use it.
 
@@ -66,14 +74,22 @@ class WarmUpLR:
         if self.last_iter <= self.warmup_iters:
             self._update_lr(self.last_iter)
 
-    def state_dict(self):
-        return {
-            key: value
-            for key, value in self.__dict__.items() if key != 'optimizer'
-        }
 
-    def load_state_dict(self, data):
-        if isinstance(data, dict):
-            for k, d in data.items():
-                if k in self.__dict__:
-                    self.__dict__[k] = d
+@SCHEDULERS.register_module()
+class CosineAnnealingLR(scheduler.CosineAnnealingLR, BaseScheduler):
+    """CosineAnnealing LR Scheduler."""
+
+
+@SCHEDULERS.register_module()
+class ExponentialLR(scheduler.ExponentialLR, BaseScheduler):
+    """Exponential LR Scheduler."""
+
+
+@SCHEDULERS.register_module()
+class StepLR(scheduler.StepLR, BaseScheduler):
+    """Step LR Scheduler."""
+
+
+@SCHEDULERS.register_module()
+class MultiStepLR(scheduler.MultiStepLR, BaseScheduler):
+    """Multiple Step LR Scheduler."""
