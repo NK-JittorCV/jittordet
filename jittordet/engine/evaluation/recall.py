@@ -3,6 +3,7 @@ from collections.abc import Sequence
 import numpy as np
 from terminaltables import AsciiTable
 
+from ..logger import print_log
 from .bbox_overlaps import bbox_overlaps
 
 
@@ -102,7 +103,7 @@ def print_recall_summary(recalls,
                          col_idxs=None,
                          logger=None):
     """Print recalls in a table."""
-    
+
     proposal_nums = np.array(proposal_nums, dtype=np.int32)
     iou_thrs = np.array(iou_thrs)
     if row_idxs is None:
@@ -140,8 +141,8 @@ def plot_num_recall(recalls, proposal_nums):
 
 
 def plot_iou_recall(recalls, iou_thrs):
-    """Plot IoU-Recalls curve. """
-    
+    """Plot IoU-Recalls curve."""
+
     if isinstance(iou_thrs, np.ndarray):
         _iou_thrs = iou_thrs.tolist()
     else:

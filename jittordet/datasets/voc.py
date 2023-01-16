@@ -1,14 +1,13 @@
+import os.path as osp
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import List, Union
 
-import os.path as osp
-import xml.etree.ElementTree as ET
-
-from PIL import Image
 import numpy as np
+from PIL import Image
 
-from .base import BaseDetDataset
 from jittordet.engine import DATASETS
+from .base import BaseDetDataset
 
 
 def list_from_file(filename: Union[str, Path],
@@ -16,11 +15,10 @@ def list_from_file(filename: Union[str, Path],
                    offset: int = 0,
                    max_num: int = 0,
                    encoding: str = 'utf-8') -> List:
-    """Load a text file and parse the content as a list of strings.
-    """
+    """Load a text file and parse the content as a list of strings."""
     cnt = 0
     item_list = []
-    with open(filename, mode="r", encoding=encoding) as f:
+    with open(filename, mode='r', encoding=encoding) as f:
         for _ in range(offset):
             f.readline()
         for line in f:
@@ -30,18 +28,19 @@ def list_from_file(filename: Union[str, Path],
             cnt += 1
     return item_list
 
+
 @DATASETS.register_module()
 class VOCDataset(BaseDetDataset):
-    
+
     CLASSES = ('aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus', 'car',
                'cat', 'chair', 'cow', 'diningtable', 'dog', 'horse',
                'motorbike', 'person', 'pottedplant', 'sheep', 'sofa', 'train',
                'tvmonitor')
-    
+
     def __init__(self,
                  min_size=None,
                  img_subdir='JPEGImages',
-                 ann_subdir='Annotations', 
+                 ann_subdir='Annotations',
                  **kwargs):
         self.img_subdir = img_subdir
         self.ann_subdir = ann_subdir
@@ -54,8 +53,7 @@ class VOCDataset(BaseDetDataset):
             self.year = 2012
         else:
             raise ValueError('Cannot infer dataset year from img_prefix')
-        
-    
+
     def load_annotations(self, ann_file):
         """Load annotation from XML style ann_file.
 
@@ -82,10 +80,10 @@ class VOCDataset(BaseDetDataset):
                 img_path = osp.join(self.img_prefix, filename)
                 img = Image.open(img_path)
                 width, height = img.size
-            data_infos.append(dict(id=img_id, filename=filename, width=width, height=height))
+            data_infos.append(
+                dict(id=img_id, filename=filename, width=width, height=height))
         return data_infos
-    
-    
+
     def _filter_imgs(self, min_size=32):
         """Filter images too small or without annotation."""
         valid_inds = []
@@ -106,7 +104,6 @@ class VOCDataset(BaseDetDataset):
             else:
                 valid_inds.append(i)
         return valid_inds
-    
 
     def get_ann_info(self, idx):
         """Get annotation from XML file by index.
@@ -174,7 +171,6 @@ class VOCDataset(BaseDetDataset):
             labels_ignore=labels_ignore.astype(np.int64))
         return ann
 
-
     def get_cat_ids(self, idx):
         """Get category ids in XML file by index.
 
@@ -196,8 +192,7 @@ class VOCDataset(BaseDetDataset):
             label = self.cat2label[name]
             cat_ids.append(label)
         return cat_ids
-    
-    
+
     def evaluate(self,
                  results,
                  metric='mAP',

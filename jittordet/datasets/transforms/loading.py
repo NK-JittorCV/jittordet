@@ -1,16 +1,16 @@
-import numpy as np
 import os.path as osp
+
+import numpy as np
 from PIL import Image
 
 from jittordet.engine import TRANSFORM
 
+
 @TRANSFORM.register_module()
 class LoadImageFromFile:
     """Load an image from file."""
-    def __init__(self,
-                 to_float32=False,
-                 image_colors=256,
-                 mode='RGB'):
+
+    def __init__(self, to_float32=False, image_colors=256, mode='RGB'):
         self.to_float32 = to_float32
         self.image_colors = image_colors
         self.image_mode = mode
@@ -23,8 +23,10 @@ class LoadImageFromFile:
         else:
             filename = data['img_info']['filename']
 
-        img = np.array(Image.open(filename).convert(mode=self.image_mode, colors=self.image_colors))
-        
+        img = np.array(
+            Image.open(filename).convert(
+                mode=self.image_mode, colors=self.image_colors))
+
         if self.to_float32:
             img = img.astype(np.float32)
 
@@ -43,14 +45,12 @@ class LoadImageFromFile:
                     f'image_mode={self.image_mode})')
         return repr_str
 
-    
+
 @TRANSFORM.register_module()
 class LoadAnnotations:
     """Load multiple types of annotations."""
-    def __init__(self,
-                 with_bbox=True,
-                 with_label=True,
-                 denorm_bbox=False):
+
+    def __init__(self, with_bbox=True, with_label=True, denorm_bbox=False):
         self.with_bbox = with_bbox
         self.with_label = with_label
         self.denorm_bbox = denorm_bbox
@@ -83,7 +83,6 @@ class LoadAnnotations:
         """Private function to load label annotations."""
         data['gt_labels'] = data['ann_info']['labels'].copy()
         return data
-
 
     def __call__(self, data: dict) -> dict:
         """Call function to load multiple types annotations."""

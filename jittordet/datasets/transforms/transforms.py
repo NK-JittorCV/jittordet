@@ -1,13 +1,16 @@
 import collections
+
 import numpy as np
 
-from ..utils import impad, impad_to_multiple, imrescale, imresize, imflip, imnormalize
 from jittordet.engine import TRANSFORM
+from ..utils import (imflip, imnormalize, impad, impad_to_multiple, imrescale,
+                     imresize)
 
 
 @TRANSFORM.register_module()
 class Resize:
     """Resize images & bbox & mask."""
+
     def __init__(self,
                  img_scale=None,
                  multiscale_mode='range',
@@ -146,7 +149,8 @@ class Resize:
                 img_shape = data['img'].shape[:2]
                 scale_factor = data['scale_factor']
                 assert isinstance(scale_factor, float)
-                data['scale'] = tuple([int(x * scale_factor) for x in img_shape][::-1])
+                data['scale'] = tuple(
+                    [int(x * scale_factor) for x in img_shape][::-1])
             else:
                 self._random_scale(data)
         else:
@@ -175,6 +179,7 @@ class Resize:
 @TRANSFORM.register_module()
 class RandomFlip:
     """Flip the image & bbox & mask."""
+
     def __init__(self, flip_ratio=None, direction='horizontal'):
         if isinstance(flip_ratio, list):
             for i in flip_ratio:
@@ -253,13 +258,11 @@ class RandomFlip:
         if data['flip']:
             # flip image
             for key in data.get('img_fields', ['img']):
-                data[key] = imflip(data[key], 
-                                      direction=data['flip_direction'])
+                data[key] = imflip(data[key], direction=data['flip_direction'])
             # flip bboxes
             for key in data.get('bbox_fields', []):
-                data[key] = self.bbox_flip(data[key],
-                                              data['img_shape'],
-                                              data['flip_direction'])
+                data[key] = self.bbox_flip(data[key], data['img_shape'],
+                                           data['flip_direction'])
         return data
 
     def __repr__(self):
@@ -269,6 +272,7 @@ class RandomFlip:
 @TRANSFORM.register_module()
 class Pad:
     """Pad the image & masks & segmentation map."""
+
     def __init__(self,
                  size=None,
                  size_divisor=None,
@@ -300,7 +304,8 @@ class Pad:
             if self.size is not None:
                 padded_img = impad(data[key], shape=self.size, pad_val=pad_val)
             elif self.size_divisor is not None:
-                padded_img = impad_to_multiple(data[key], self.size_divisor, pad_val=pad_val)
+                padded_img = impad_to_multiple(
+                    data[key], self.size_divisor, pad_val=pad_val)
             data[key] = padded_img
         data['pad_shape'] = padded_img.shape
         data['pad_fixed_size'] = self.size
@@ -319,6 +324,7 @@ class Pad:
 @TRANSFORM.register_module()
 class Normalize:
     """Normalize the image."""
+
     def __init__(self, mean, std, to_rgb=True):
         self.mean = np.array(mean, dtype=np.float32)
         self.std = np.array(std, dtype=np.float32)
@@ -327,8 +333,10 @@ class Normalize:
     def __call__(self, data):
         """Call function to normalize images."""
         for key in data.get('img_fields', ['img']):
-            data[key] = imnormalize(data[key], self.mean, self.std, self.to_rgb)
-        data['img_norm_cfg'] = dict(mean=self.mean, std=self.std, to_rgb=self.to_rgb)
+            data[key] = imnormalize(data[key], self.mean, self.std,
+                                    self.to_rgb)
+        data['img_norm_cfg'] = dict(
+            mean=self.mean, std=self.std, to_rgb=self.to_rgb)
         return data
 
     def __repr__(self):
@@ -340,12 +348,13 @@ class Normalize:
 @TRANSFORM.register_module()
 class Compose:
     """Compose multiple transforms sequentially."""
+
     def __init__(self, transforms):
         assert isinstance(transforms, collections.abc.Sequence)
         self.transforms = []
         for transform in transforms:
             if isinstance(transform, dict):
-                #TODO: transform = build_from_cfg(transform, TRANSFORM)
+                # TODO: transform = build_from_cfg(transform, TRANSFORM)
                 self.transforms.append(transform)
             elif callable(transform):
                 self.transforms.append(transform)

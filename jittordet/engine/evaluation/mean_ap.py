@@ -1,7 +1,6 @@
 from multiprocessing import Pool
 
 import numpy as np
-from terminaltables import AsciiTable
 
 from .bbox_overlaps import bbox_overlaps
 
@@ -35,7 +34,8 @@ def average_precision(recalls, precisions, mode='area'):
                 ap[i] += prec
         ap /= 11
     else:
-        raise ValueError('Unrecognized mode, only "area" and "11points" are supported')
+        raise ValueError(
+            'Unrecognized mode, only "area" and "11points" are supported')
     if no_scale:
         ap = ap[0]
     return ap
@@ -390,7 +390,7 @@ def tpfp_openimages(det_bboxes,
 
 def get_cls_results(det_results, annotations, class_id):
     """Get det results and gt information of a certain class."""
-    
+
     cls_dets = [img_res[class_id] for img_res in det_results]
     cls_gts = []
     cls_gts_ignore = []
@@ -409,7 +409,7 @@ def get_cls_results(det_results, annotations, class_id):
 
 def get_cls_group_ofs(annotations, class_id):
     """Get `gt_group_of` of a certain class, which is used in Open Images."""
-    
+
     gt_group_ofs = []
     for ann in annotations:
         gt_inds = ann['labels'] == class_id
@@ -564,8 +564,6 @@ def eval_map(det_results,
             if cls_result['num_gts'] > 0:
                 aps.append(cls_result['ap'])
         mean_ap = np.array(aps).mean().item() if aps else 0.0
-
-    # TODO print_map_summary(mean_ap, eval_results, dataset, area_ranges, logger=logger)
 
     return mean_ap, eval_results
 

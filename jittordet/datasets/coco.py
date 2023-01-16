@@ -1,37 +1,39 @@
-import warnings 
+import warnings
+
 try:
     from pycocotools.coco import COCO
     from pycocotools.cocoeval import COCOeval
-except:
-    warnings.warn("pycocotools is not installed!")
+except:  # noqa E722
+    warnings.warn('pycocotools is not installed!')
 
-import os
-import json
 import itertools
-import numpy as np 
+import json
+import os
 from collections import OrderedDict
+
+import numpy as np
 from terminaltables import AsciiTable
 
-from .base import BaseDetDataset
 from jittordet.engine import DATASETS
+from .base import BaseDetDataset
 
 
-def build_file(work_dir,prefix):
-    """ build file and makedirs the file parent path """
+def build_file(work_dir, prefix):
+    """build file and makedirs the file parent path."""
     work_dir = os.path.abspath(work_dir)
-    prefixes = prefix.split("/")
+    prefixes = prefix.split('/')
     file_name = prefixes[-1]
-    prefix = "/".join(prefixes[:-1])
-    if len(prefix)>0:
-        work_dir = os.path.join(work_dir,prefix)
-    os.makedirs(work_dir,exist_ok=True)
-    file = os.path.join(work_dir,file_name)
-    return file 
+    prefix = '/'.join(prefixes[:-1])
+    if len(prefix) > 0:
+        work_dir = os.path.join(work_dir, prefix)
+    os.makedirs(work_dir, exist_ok=True)
+    file = os.path.join(work_dir, file_name)
+    return file
 
 
 @DATASETS.register_module()
 class COCODataset(BaseDetDataset):
-    """ COCO Dataset for JittorDet."""
+    """COCO Dataset for JittorDet."""
 
     CLASSES = ('person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus',
                'train', 'truck', 'boat', 'traffic light', 'fire hydrant',
@@ -47,7 +49,7 @@ class COCODataset(BaseDetDataset):
                'mouse', 'remote', 'keyboard', 'cell phone', 'microwave',
                'oven', 'toaster', 'sink', 'refrigerator', 'book', 'clock',
                'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush')
-                
+
     def load_annotations(self, ann_file):
         self.coco = COCO(ann_file)
         self.cat_ids = self.coco.getCatIds(catNms=self.CLASSES)
@@ -61,26 +63,24 @@ class COCODataset(BaseDetDataset):
             data_infos.append(info)
             ann_ids = self.coco.getAnnIds(imgIds=[i])
             total_ann_ids.extend(ann_ids)
-        assert len(set(total_ann_ids)) == len(total_ann_ids), f"Annotation ids in '{ann_file}' are not unique!"
+        assert len(set(total_ann_ids)) == len(
+            total_ann_ids), f"Annotation ids in '{ann_file}' are not unique!"
         return data_infos
-    
-    
+
     def get_ann_info(self, idx):
         """Get COCO annotation by index."""
         img_id = self.data_infos[idx]['id']
         ann_ids = self.coco.getAnnIds(imgIds=[img_id])
         ann_info = self.coco.loadAnns(ann_ids)
         return self._parse(self.data_infos[idx], ann_info)
-    
-    
+
     def get_cat_ids(self, idx):
         """Get COCO category ids by index."""
         img_id = self.data_infos[idx]['id']
         ann_ids = self.coco.getAnnIds(imgIds=[img_id])
         ann_info = self.coco.loadAnns(ann_ids)
         return [ann['category_id'] for ann in ann_info]
-    
-    
+
     def _parse(self, img_info, ann_info):
         """Parse bbox and mask annotation."""
         gt_bboxes = []
@@ -118,13 +118,10 @@ class COCODataset(BaseDetDataset):
             gt_bboxes_ignore = np.zeros((0, 4), dtype=np.float32)
 
         ann = dict(
-            bboxes=gt_bboxes,
-            labels=gt_labels,
-            bboxes_ignore=gt_bboxes_ignore)
+            bboxes=gt_bboxes, labels=gt_labels, bboxes_ignore=gt_bboxes_ignore)
 
         return ann
-    
-    
+
     def _filter_imgs(self, min_size=32):
         """Filter images too small or without ground truths."""
         valid_inds = []
@@ -149,26 +146,26 @@ class COCODataset(BaseDetDataset):
         self.img_ids = valid_img_ids
         return valid_inds
 
-
-    def save_results(self,results,save_file):
+    def save_results(self, results, save_file):
         """Convert detection results to COCO json style."""
+
         def xyxy2xywh(box):
-            x1,y1,x2,y2 = box.tolist()
-            return [x1,y1,x2-x1,y2-y1]
-        
+            x1, y1, x2, y2 = box.tolist()
+            return [x1, y1, x2 - x1, y2 - y1]
+
         json_results = []
-        for result,target in results:
-            img_id = result["img_id"]
-            for box,score,label in zip(result["boxes"],result["scores"],result["labels"]):
+        for result, target in results:
+            img_id = result['img_id']
+            for box, score, label in zip(result['boxes'], result['scores'],
+                                         result['labels']):
                 data = dict()
                 data['image_id'] = img_id
                 data['bbox'] = xyxy2xywh(box)
                 data['score'] = float(score)
-                data['category_id'] = self.cat_ids[int(label)-1]
+                data['category_id'] = self.cat_ids[int(label) - 1]
                 json_results.append(data)
-        json.dump(json_results,open(save_file,"w"))
+        json.dump(json_results, open(save_file, 'w'))
 
-    
     def evaluate(self,
                  results,
                  work_dir,
@@ -180,9 +177,9 @@ class COCODataset(BaseDetDataset):
                  iou_thrs=None,
                  metric_items=None):
         """Evaluation in COCO protocol."""
-        save_file = build_file(work_dir,prefix=f"detections/val_{epoch}.json")
-        
-        self.save_results(results,save_file)
+        save_file = build_file(work_dir, prefix=f'detections/val_{epoch}.json')
+
+        self.save_results(results, save_file)
         metrics = metric if isinstance(metric, list) else [metric]
         allowed_metrics = ['bbox', 'segm', 'proposal', 'proposal_fast']
         for metric in metrics:
@@ -219,8 +216,9 @@ class COCODataset(BaseDetDataset):
                     'of small/medium/large instances since v2.12.0. This '
                     'does not change the overall mAP calculation.',
                     UserWarning)
-            if len(predictions)==0:
-                warnings.warn('The testing results of the whole dataset is empty.')
+            if len(predictions) == 0:
+                warnings.warn(
+                    'The testing results of the whole dataset is empty.')
                 break
             cocoDt = cocoGt.loadRes(predictions)
             cocoEval = COCOeval(cocoGt, cocoDt, iou_type)
@@ -322,20 +320,27 @@ class COCODataset(BaseDetDataset):
 
 
 def test_cocodataset():
-    from .transforms import LoadImageFromFile,LoadAnnotations,DefaultFormatBundle, Collect
-    from .transforms import Pad, Resize, RandomFlip, Normalize
-    img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
-    dataset = COCODataset(img_prefix='data/coco/val2017/',
-                          ann_file="data/coco/annotations/instances_val2017.json",
-                          transforms=[LoadImageFromFile(),
-                                      LoadAnnotations(),
-                                      Resize(img_scale=(1333, 800), keep_ratio=True),
-                                      Pad(size_divisor=32),
-                                      RandomFlip(flip_ratio=0.5),
-                                      Normalize(**img_norm_cfg),
-                                      DefaultFormatBundle(),
-                                      Collect(keys=['img'])],
-                          batch_size=4)
+    from .transforms import (Collect, DefaultFormatBundle, LoadAnnotations,
+                             LoadImageFromFile, Normalize, Pad, RandomFlip,
+                             Resize)
+    img_norm_cfg = dict(
+        mean=[123.675, 116.28, 103.53],
+        std=[58.395, 57.12, 57.375],
+        to_rgb=True)
+    dataset = COCODataset(
+        img_prefix='data/coco/val2017/',
+        ann_file='data/coco/annotations/instances_val2017.json',
+        transforms=[
+            LoadImageFromFile(),
+            LoadAnnotations(),
+            Resize(img_scale=(1333, 800), keep_ratio=True),
+            Pad(size_divisor=32),
+            RandomFlip(flip_ratio=0.5),
+            Normalize(**img_norm_cfg),
+            DefaultFormatBundle(),
+            Collect(keys=['img'])
+        ],
+        batch_size=4)
     print(len(dataset.CLASSES))
     print(len(dataset.cat_ids))
     for i in dataset:
@@ -343,5 +348,6 @@ def test_cocodataset():
         print(len(i['img_metas']))
         break
 
-if __name__ == "__main__":
+
+if __name__ == '__main__':
     test_cocodataset()

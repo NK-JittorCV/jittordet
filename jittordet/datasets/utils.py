@@ -1,14 +1,16 @@
 import numbers
 from typing import List, Optional, Tuple, Union
-import numpy as np
+
 import cv2
+import numpy as np
 
 try:
     from PIL import Image
 except ImportError:
     Image = None
 
-imread_backend = "cv2"
+imread_backend = 'cv2'
+
 
 def _scale_size(
     size: Tuple[int, int],
@@ -84,7 +86,8 @@ def imresize(
         pil_image = pil_image.resize(size, pillow_interp_codes[interpolation])
         resized_img = np.array(pil_image)
     else:
-        resized_img = cv2.resize(img, size, dst=out, interpolation=cv2_interp_codes[interpolation])
+        resized_img = cv2.resize(
+            img, size, dst=out, interpolation=cv2_interp_codes[interpolation])
     if not return_scale:
         return resized_img
     else:
@@ -159,7 +162,7 @@ def imnormalize(img, mean, std, to_rgb=True):
     cv2.subtract(img, mean, img)  # inplace
     cv2.multiply(img, stdinv, img)  # inplace
     return img
-    
+
 
 def impad(img: np.ndarray,
           *,

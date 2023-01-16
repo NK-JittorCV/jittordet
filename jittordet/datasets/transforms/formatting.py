@@ -39,9 +39,10 @@ class DefaultFormatBundle:
         num_channels = 1 if len(img.shape) < 3 else img.shape[2]
         data.setdefault(
             'img_norm_cfg',
-            dict(mean=np.zeros(num_channels, dtype=np.float32),
-                 std=np.ones(num_channels, dtype=np.float32),
-                 to_rgb=False))
+            dict(
+                mean=np.zeros(num_channels, dtype=np.float32),
+                std=np.ones(num_channels, dtype=np.float32),
+                to_rgb=False))
         return data
 
     def __repr__(self):
@@ -52,6 +53,7 @@ class DefaultFormatBundle:
 @TRANSFORM.register_module()
 class Collect:
     """Collect data from the loader relevant to the specific task."""
+
     def __init__(self,
                  keys,
                  meta_keys=('filename', 'ori_filename', 'ori_shape',
@@ -61,7 +63,7 @@ class Collect:
         self.meta_keys = meta_keys
 
     def __call__(self, data: dict) -> dict:
-        """Call function to collect keys in results. """
+        """Call function to collect keys in results."""
         data = {}
         img_meta = {}
         for key in self.meta_keys:

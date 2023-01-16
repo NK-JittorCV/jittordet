@@ -7,6 +7,7 @@ from .transforms import Compose
 @TRANSFORM.register_module()
 class MultiScaleFlipAug:
     """Test-time augmentation with multiple scales and flipping."""
+
     def __init__(self,
                  transforms,
                  img_scale=None,

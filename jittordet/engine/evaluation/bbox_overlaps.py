@@ -7,7 +7,7 @@ def bbox_overlaps(bboxes1,
                   eps=1e-6,
                   use_legacy_coordinate=False):
     """Calculate the ious between each bbox of bboxes1 and bboxes2."""
-    
+
     assert mode in ['iou', 'iof']
     if not use_legacy_coordinate:
         extra_length = 0.
