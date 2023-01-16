@@ -9,3 +9,4 @@ EVALUATORS = Register('EVALUATORS')
 
 DATASETS = Register('DATASETS')
 MODELS = Register('MODELS')
+TRANSFORM = Register('transform')
