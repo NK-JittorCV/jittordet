@@ -138,7 +138,7 @@ class LoggerHook(BaseHook):
         log_str_list.extend([f'eta: {eta_time}', f'time: {iter_time:.4f}'])
 
         # other information
-        for key in self._train_log_history.keys():
+        for key in self._select_log_history(phase).keys():
             if key == 'time':
                 continue
             log_value = self.get_log_hitory(
@@ -208,3 +208,24 @@ class LoggerHook(BaseHook):
             if jt.rank == 0:
                 runner.logger.info(
                     f'experiment name: {runner.experiment_name}')
+
+    def after_val_epoch(self, runner, metrics=None):
+        log_str = self.format_metrics(metrics)
+        if jt.rank == 0 and log_str is not None:
+            runner.logger.info(log_str)
+
+    def after_test_epoch(self, runner, metrics=None):
+        log_str = self.format_metrics(metrics)
+        if jt.rank == 0 and log_str is not None:
+            runner.logger.info(log_str)
+
+    def format_metrics(self, metrics):
+        log_str_list = []
+        if isinstance(metrics, dict):
+            for key, value in metrics.items():
+                log_str_list.append(f'{key}: {value:.3f}')
+        else:
+            log_str_list.append(f'metrics: {metrics}')
+
+        log_str = '  '.join(log_str_list) if log_str_list else None
+        return log_str

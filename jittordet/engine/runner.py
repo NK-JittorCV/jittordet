@@ -9,10 +9,13 @@ import jittor.nn as nn
 from jittor.dataset import Dataset
 from jittor.optim import Optimizer
 
+from .config import dump_cfg
+from .evaluator import BaseEvaluator
 from .hooks import BaseHook
 from .logger import get_logger
 from .loops import BaseLoop
-from .register import DATASETS, HOOKS, LOOPS, MODELS, OPTIMIZERS, SCHEDULERS
+from .register import (DATASETS, EVALUATORS, HOOKS, LOOPS, MODELS, OPTIMIZERS,
+                       SCHEDULERS)
 
 __all__ = ['Runner']
 
@@ -52,7 +55,7 @@ class Runner:
         # set random seed and other randomness related setting
         self.setup_randomness(randomness)
 
-        timestamp = jt.Var(time.time())
+        timestamp = jt.array(int(time.time()), dtype=jt.int64)
         if jt.in_mpi:
             timestamp = timestamp.mpi_broadcast(root=0)
         self._time_stamp = time.strftime('%Y%m%d_%H%M%S',
@@ -193,22 +196,16 @@ class Runner:
             raise TypeError('loops should be a BaseLoop object or dict')
 
     def build_evaluator(self, evaluator):
-        # if isinstance(evaluator, BaseEvaluator):
-        #     return evaluator
-        # elif isinstance(evaluator, dict):
-        #     return EVALUATORS.build(evaluator, runner=self)
-        # else:
-        #     raise TypeError(
-        #         'evaluator should be a BaseEvaluator object or dict')
-        pass
+        if isinstance(evaluator, BaseEvaluator):
+            return evaluator
+        elif isinstance(evaluator, dict):
+            return EVALUATORS.build(evaluator)
+        else:
+            raise TypeError(
+                'evaluator should be a BaseEvaluator object or dict')
 
     def train(self):
-        log_dir = osp.join(self.work_dir, self.time_stamp + '_train')
-        log_file = osp.join(log_dir, self.time_stamp + '.log')
-        if jt.rank == 0 and not osp.exists(log_dir):
-            os.makedirs(log_dir)
-        self.log_dir = log_dir
-        self.logger = get_logger(name='jittordet', log_file=log_file)
+        self.setup_logger_dir('train')
 
         train_related = (self.train_dataset, self.train_loop, self.optimizer,
                          self.scheduler)
@@ -231,7 +228,7 @@ class Runner:
 
         # initialization
         self.init_model_weights()
-        # self.load_or_resume()
+        self.load_or_resume()
         if not self.disable_cuda:
             jt.flags.use_cuda = 1
 
@@ -239,11 +236,7 @@ class Runner:
         self.train_loop.run()
 
     def val(self):
-        log_dir = osp.join(self.work_dir, self.time_stamp + '_val')
-        log_file = osp.join(log_dir, self.time_stamp + '.log')
-        os.makedirs(log_dir)
-        self.log_dir = log_dir
-        self.logger = get_logger(name='jittordet', log_flie=log_file)
+        self.setup_logger_dir('val')
 
         val_related = (self.val_dataset, self.val_loop, self.val_evaluator)
         assert all([item is not None for item in val_related]), \
@@ -260,11 +253,7 @@ class Runner:
         self.val_loop.run()
 
     def test(self):
-        log_dir = osp.join(self.work_dir, self.time_stamp + '_test')
-        log_file = osp.join(log_dir, self.time_stamp + '.log')
-        os.makedirs(log_dir)
-        self.log_dir = log_dir
-        self.logger = get_logger(name='jittordet', log_flie=log_file)
+        self.setup_logger_dir('test')
 
         test_related = (self.test_dataset, self.test_loop, self.test_evaluator)
         assert all([item is not None for item in test_related]), \
@@ -280,16 +269,39 @@ class Runner:
         # start run
         self.val_loop.run()
 
+    def setup_logger_dir(self, phase):
+        assert phase in ['train', 'val', 'test']
+        log_dir = osp.join(self.work_dir, self.time_stamp + '_' + phase)
+        log_file = osp.join(log_dir, self.time_stamp + '.log')
+        if jt.rank == 0 and not osp.exists(log_dir):
+            os.makedirs(log_dir)
+        self.log_dir = log_dir
+        self.logger = get_logger(name='jittordet', log_file=log_file)
+
+        cfg_filename = self.cfg.get('filename', None)
+        cfg_filename = 'config.yml' if cfg_filename is None else \
+            osp.basename(cfg_filename)
+        if jt.rank == 0:
+            dump_cfg(self.cfg, osp.join(self.log_dir, cfg_filename))
+
     def setup_randomness(self, cfg):
         pass
 
-    def resume(self):
+    def load_or_resume(self):
+        assert not (self._load_from and self._resume_from), \
+            'Can only set either "load_from" or "resume_from"'
+        if self._load_from:
+            self.load(self._load_from)
+        if self._resume_from:
+            self.resume(self._resume_from)
+
+    def resume(self, checkpoint):
         pass
 
-    def load(self):
+    def load(self, checkpoint):
         pass
 
-    def save(self, checkpoint_path):
+    def save_checkpoint(self, filepath, with_meta=True):
         pass
 
     def setup_hooks(self, hooks):

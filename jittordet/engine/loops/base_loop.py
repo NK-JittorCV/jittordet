@@ -5,6 +5,9 @@ class BaseLoop(metaclass=ABCMeta):
 
     def __init__(self, runner):
         self._runner = runner
+        self._max_epoch = 1
+        self._epoch = 0
+        self._iter = 0
 
     @property
     def runner(self):

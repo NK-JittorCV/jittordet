@@ -9,9 +9,6 @@ class EpochTrainLoop(BaseLoop):
         super().__init__(runner=runner)
         self.val_interval = val_interval
         self._max_epoch = max_epoch
-        self._epoch = 0
-        self._iter = 0
-        pass
 
     def run(self):
         self.runner.call_hook('before_train')
