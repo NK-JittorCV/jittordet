@@ -2,10 +2,12 @@ import copy
 import inspect
 import os
 import os.path as osp
+import random
 import time
 
 import jittor as jt
 import jittor.nn as nn
+import numpy as np
 from jittor.dataset import Dataset
 from jittor.optim import Optimizer
 
@@ -36,7 +38,7 @@ class Runner:
                  optimizer=None,
                  scheduler=None,
                  hooks=None,
-                 randomness=None,
+                 seed=None,
                  disable_cuda=False,
                  resume_from=None,
                  load_from=None,
@@ -53,7 +55,7 @@ class Runner:
             self.cfg = copy.deepcopy(self.cfg)
 
         # set random seed and other randomness related setting
-        self.setup_randomness(randomness)
+        self.setup_randomness(seed)
 
         timestamp = jt.array(int(time.time()), dtype=jt.int64)
         if jt.in_mpi:
@@ -114,7 +116,7 @@ class Runner:
             optimizer=cfg.get('optimizer'),
             scheduler=cfg.get('scheduler'),
             hooks=cfg.get('hooks'),
-            randomness=cfg.get('randomness'),
+            seed=cfg.get('seed'),
             disable_cuda=cfg.get('disable_cuda', False),
             resume_from=cfg.get('resume_from'),
             load_from=cfg.get('load_from'),
@@ -287,8 +289,12 @@ class Runner:
         if jt.rank == 0:
             dump_cfg(self.cfg, osp.join(self.log_dir, cfg_filename))
 
-    def setup_randomness(self, cfg):
-        pass
+    def setup_randomness(self, seed):
+        if seed is not None:
+            rank_diff_seed = seed + jt.rank
+            random.seed(rank_diff_seed)
+            np.random.seed(rank_diff_seed)
+            jt.set_global_seed(seed)
 
     def load_or_resume(self):
         assert not (self._load_from and self._resume_from), \

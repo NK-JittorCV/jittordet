@@ -26,4 +26,4 @@ class CheckpointHook(BaseHook):
             runner.save_checkpoint(ckpt_filepath)
 
             if jt.rank == 0:
-                runner.logger.info('save checkpoint to {ckpt_filepath}')
+                runner.logger.info(f'save checkpoint to {ckpt_filepath}')
