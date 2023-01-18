@@ -127,7 +127,3 @@ class VOCEvaluator(BaseEvaluator):
                 for i, num in enumerate(self.proposal_nums):
                     eval_results[f'AR@{num}'] = ar[i]
         return eval_results
-            
-        
-        
-        
