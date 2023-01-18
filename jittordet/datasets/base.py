@@ -1,192 +1,177 @@
+# modified from mmengine.dataset.BaseDataset
+
+import copy
 import os.path as osp
-import warnings
 
 import numpy as np
 from jittor.dataset import Dataset
 
-from jittordet.engine import DATASETS
-from .piplines.transforms import Compose
+from jittordet.engine import BATCH_SAMPLERS, DATASETS, TRANSFORMS
+
+
+class Compose:
+    """Modified from mmengine.dataset.base_dataest.
+
+    Compose multiple transforms sequentially.
+    """
+
+    def __init__(self, transforms=None):
+        if transforms is None:
+            self.transforms = []
+            return
+
+        # validate data type
+        if isinstance(transforms, dict):
+            transforms = [transforms]
+
+        self.transforms = []
+        for transform in transforms:
+            if isinstance(transform, dict):
+                transform = TRANSFORMS.build(transform)
+                if not callable(transform):
+                    raise TypeError(f'transform should be a callable object, '
+                                    f'but got {type(transform)}')
+                self.transforms.append(transform)
+            elif callable(transform):
+                self.transforms.append(transform)
+            else:
+                raise TypeError(
+                    f'transform must be a callable object or dict, '
+                    f'but got {type(transform)}')
+
+    def __call__(self, data):
+        for t in self.transforms:
+            data = t(data)
+            if data is None:
+                return None
+        return data
 
 
 @DATASETS.register_module()
 class BaseDetDataset(Dataset):
-    """Base dataset for JittorDet."""
 
-    CLASSES = None
+    METAINFO = dict()
 
-    def __init__(
-        self,
-        ann_file,
-        transforms,
-        classes=None,
-        data_root=None,
-        img_prefix='',
-        proposal_file=None,
-        test_mode=False,
-        filter_empty_gt=True,
-        batch_size=1,
-        num_workers=0,
-        shuffle=False,
-        drop_last=False,
-    ):
-        super(BaseDetDataset, self).__init__(
-            batch_size=batch_size,
-            num_workers=num_workers,
-            shuffle=shuffle,
-            drop_last=drop_last)
-        self.ann_file = ann_file
+    def __init__(self,
+                 batch_size,
+                 num_works=0,
+                 data_root='',
+                 datasetwise_cfg=None,
+                 metainfo=None,
+                 filter_cfg=None,
+                 test_mode=False,
+                 transforms=None,
+                 batch_sampler=None,
+                 max_refetch=100,
+                 **kwargs):
+        super().__init__(
+            batch_size=batch_size, num_workers=num_works, **kwargs)
         self.data_root = data_root
-        self.img_prefix = img_prefix
-        self.proposal_file = proposal_file
+        self.filter_cfg = copy.deepcopy(filter_cfg)
         self.test_mode = test_mode
-        self.filter_empty_gt = filter_empty_gt
-        self.CLASSES = self.get_classes(classes)
+        self.max_refetch = max_refetch
 
-        # join paths if data_root is specified
-        if self.data_root is not None:
-            if not osp.isabs(self.ann_file):
-                self.ann_file = osp.join(self.data_root, self.ann_file)
-            if not (self.img_prefix is None or osp.isabs(self.img_prefix)):
-                self.img_prefix = osp.join(self.data_root, self.img_prefix)
-            if not (self.proposal_file is None
-                    or osp.isabs(self.proposal_file)):
-                self.proposal_file = osp.join(self.data_root,
-                                              self.proposal_file)
+        # load metainfo
+        self._metainfo = self._load_metainfo(copy.deepcopy(metainfo))
+        # datasetwise init
+        self.init_datasetwise(datasetwise_cfg)
+        # load data information
+        self.data_list = self.load_data_list()
+        # fliter illegal data
+        self.data_list = self.filter_data()
 
-        # load annotations
-        self.data_infos = self.load_annotations(self.ann_file)
+        # set total length for jittor.utils.dataset
+        self.total_len = len(self.data_list)
 
-        # load proposals
-        if self.proposal_file is not None:
-            self.proposals = self.load_proposals(self.proposal_file)
-        else:
-            self.proposals = None
-
-        # filter images too small and containing no annotations
-        if not test_mode:
-            valid_inds = self._filter_imgs()
-            self.data_infos = [self.data_infos[i] for i in valid_inds]
-            if self.proposals is not None:
-                self.proposals = [self.proposals[i] for i in valid_inds]
-            # set group flag for the sampler
-            self._set_group_flag()
-
-        self.total_len = len(self.data_infos)
+        # compose data transforms
         self.transforms = Compose(transforms)
 
-    def load_annotations(self, ann_file):
-        """Load annotation from annotation file."""
+        if batch_sampler is not None:
+            self.batch_sampler = BATCH_SAMPLERS.build(
+                batch_sampler, dataset=self)
+        else:
+            self.batch_sampler = None
+
+    @property
+    def metainfo(self):
+        return copy.deepcopy(self._metainfo)
+
+    @classmethod
+    def _load_metainfo(cls, metainfo):
+        cls_metainfo = copy.deepcopy(cls.METAINFO)
+        if metainfo is None:
+            return cls_metainfo
+        if not isinstance(metainfo, dict):
+            raise TypeError(
+                f'metainfo should be a dict, but got {type(metainfo)}')
+
+        cls_metainfo.update(metainfo)
+        return cls_metainfo
+
+    def init_datasetwise(self, datasetwise_cfg):
+        if datasetwise_cfg is None:
+            return
+        assert isinstance(datasetwise_cfg, dict), \
+            f'datasetwise_cfg must be a dict, but get {type(datasetwise_cfg)}'
+
+        for k, v in datasetwise_cfg.items():
+            if hasattr(self, k):
+                raise RuntimeError(f'Attr {k} has been set in {type(self)}')
+            if 'path' in k and not osp.isabs(v):
+                v = osp.join(self.data_root, v)
+            setattr(self, k, v)
+
+    def load_data_list(self):
         raise NotImplementedError
 
-    def load_proposals(self, proposal_file):
-        """Load proposal from proposal file."""
-        raise NotImplementedError
-
-    def evaluate(self, results, metric='bbox', logger=None):
-        """Evaluation in COCO protocol."""
-        raise NotImplementedError
-
-    def get_ann_info(self, idx):
-        """Get annotation by index."""
-        return self.data_infos[idx]['ann']
-
-    def get_cat_ids(self, idx):
-        """Get category ids by index."""
-        return self.data_infos[idx]['ann']['labels'].astype(np.int).tolist()
-
-    def pre_transforms(self, data):
-        """Prepare results dict for pipeline."""
-        data['img_prefix'] = self.img_prefix
-        data['proposal_file'] = self.proposal_file
-        data['bbox_fields'] = []
+    def filter_data(self):
+        return self.data_list
 
     def __getitem__(self, idx):
-        """Get training/test data after pipeline."""
+        data_info = copy.deepcopy(self.data_list[idx])
+
+        if idx >= 0:
+            data_info['sample_idx'] = idx
+        else:
+            data_info['sample_idx'] = len(self.data_list) + idx
 
         if self.test_mode:
-            return self.prepare_test_img(idx)
-        while True:
-            data = self.prepare_train_img(idx)
+            data = self.transforms(data_info)
             if data is None:
-                idx = self._rand_another(idx)
+                raise Exception('Test time pipline should not get `None` '
+                                'data_sample')
+            return data
+
+        for _ in range(self.max_refetch + 1):
+            data = self.transforms(data_info)
+            # Broken images or random augmentations may cause the returned data
+            # to be None
+            if data is None:
+                idx = np.random.randint(0, len(self.data_list))
                 continue
             return data
 
-    def collate_batch(self, batch):
-        new_batch = {key: [] for key in batch[0]}
-        max_width = 0
-        max_height = 0
-        for data in batch:
-            for key in new_batch:
-                if 'img' == key:
-                    height, width = data['img'].shape[-2], data['img'].shape[
-                        -1]
-                    max_width = max(max_width, width)
-                    max_height = max(max_height, height)
-                new_batch[key].append(data[key])
-        N = len(new_batch['img'])
-        batch_imgs = np.zeros((N, 3, max_height, max_width), dtype=np.float32)
-        for i, img in enumerate(new_batch['img']):
-            batch_imgs[i, :, :img.shape[-2], :img.shape[-1]] = img
-        new_batch['img'] = batch_imgs
-        return new_batch
+        raise Exception(f'Cannot find valid image after {self.max_refetch}! '
+                        'Please check your image path and pipeline')
 
-    def prepare_train_img(self, idx):
-        """Get training data and annotations after pipeline."""
-        img_info = self.data_infos[idx]
-        ann_info = self.get_ann_info(idx)
-        results = dict(img_info=img_info, ann_info=ann_info)
-        if self.proposals is not None:
-            results['proposals'] = self.proposals[idx]
-        self.pre_transforms(results)
-        return self.transforms(results)
-
-    def prepare_test_img(self, idx):
-        """Get testing data after pipeline."""
-
-        img_info = self.data_infos[idx]
-        results = dict(img_info=img_info)
-        if self.proposals is not None:
-            results['proposals'] = self.proposals[idx]
-        self.pre_transforms(results)
-        return self.transforms(results)
-
-    @classmethod
-    def get_classes(cls, classes=None):
-        """Get class names of current dataset."""
-        if classes is None:
-            return cls.CLASSES
-
-        if isinstance(classes, (tuple, list)):
-            class_names = classes
+    def __len__(self):
+        if self.batch_sampler is not None:
+            return len(self.batch_sampler)
         else:
-            raise ValueError(f'Unsupported type {type(classes)} of classes.')
-        return class_names
+            return super().__len__()
 
-    def _filter_imgs(self, min_size=32):
-        """Filter images too small."""
-        if self.filter_empty_gt:
-            warnings.warn(
-                'CustomDataset does not support filtering empty gt images.')
-        valid_inds = []
-        for i, img_info in enumerate(self.data_infos):
-            if min(img_info['width'], img_info['height']) >= min_size:
-                valid_inds.append(i)
-        return valid_inds
+    def __batch_len__(self):
+        if self.batch_sampler is not None:
+            return self.batch_sampler.batch_len
+        else:
+            return super().__batch_len__()
 
-    def _set_group_flag(self):
-        """Set flag according to image aspect ratio.
+    def _get_index_list(self):
+        if self.batch_sampler is not None:
+            return self.batch_sampler.get_index_list(rng=self._shuffle_rng)
+        else:
+            return super()._get_index_list()
 
-        Images with aspect ratio greater than 1 will be set as group 1,
-        otherwise group 0.
-        """
-        self.flag = np.zeros(len(self.data_infos), dtype=np.uint8)
-        for i in range(len(self.data_infos)):
-            img_info = self.data_infos[i]
-            if img_info['width'] / img_info['height'] > 1:
-                self.flag[i] = 1
-
-    def _rand_another(self, idx):
-        """Get another random index from the same group as the given index."""
-        pool = np.where(self.flag == self.flag[idx])[0]
-        return np.random.choice(pool)
+    def collate_batch(self, batch):
+        """Disable batch collating function in jittor.utils.dataset."""
+        return batch

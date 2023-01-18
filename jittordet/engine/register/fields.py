@@ -1,12 +1,15 @@
 from .register import Register
 
 # engine
-LOOPS = Register('LOOPS')
-HOOKS = Register('HOOKS')
-OPTIMIZERS = Register('OPTIMIZERS')
-SCHEDULERS = Register('SCHEDULERS')
-EVALUATORS = Register('EVALUATORS')
+LOOPS = Register('loops')
+HOOKS = Register('hooks')
+OPTIMIZERS = Register('optimizers')
+SCHEDULERS = Register('schedulers')
+EVALUATORS = Register('evaluators')
 
-DATASETS = Register('DATASETS')
-MODELS = Register('MODELS')
-TRANSFORM = Register('transform')
+# dataset
+DATASETS = Register('datasets')
+TRANSFORMS = Register('transforms')
+BATCH_SAMPLERS = Register('batch_sampler')
+
+MODELS = Register('models')
