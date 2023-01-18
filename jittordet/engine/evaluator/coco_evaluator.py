@@ -127,27 +127,30 @@ class COCOEvaluator(BaseEvaluator):
         
         eval_results = OrderedDict()
         if self.format_only:
-            logger.info('results are saved in 'f'{osp.dirname(self.outfile_prefix)}')
+            if logger is not None:
+                logger.info('results are saved in 'f'{osp.dirname(self.outfile_prefix)}')
             return eval_results
         
         # handle lazy init
         if self._coco_api is None:
             self._coco_api = dataset.coco
         if self.cat_ids is None:
-            self.cat_ids = self._coco_api.get_cat_ids(cat_names=dataset.METAINFO['classes'])
+            self.cat_ids = self._coco_api.get_cat_ids(cat_names=dataset.metainfo.get('classes'))
         if self.img_ids is None:
             self.img_ids = self._coco_api.get_img_ids()
         
         
         for metric in self.metrics:
-            logger.info(f'Evaluating {metric}...')
+            if logger is not None:
+                logger.info(f'Evaluating {metric}...')
             iou_type = 'bbox' if metric == 'proposal' else metric
             try:
                 predictions = json.load(open(save_file))
                 coco_dt = self._coco_api.loadRes(predictions)
             except IndexError:
-                logger.error(
-                    'The testing results of the whole dataset is empty.')
+                if logger is not None:
+                    logger.error(
+                        'The testing results of the whole dataset is empty.')
                 break
             coco_eval = COCOeval(self._coco_api, coco_dt, iou_type)
             coco_eval.params.catIds = self.cat_ids
@@ -229,7 +232,8 @@ class COCOEvaluator(BaseEvaluator):
                     table_data = [headers]
                     table_data += [result for result in results_2d]
                     table = AsciiTable(table_data)
-                    logger.info('\n' + table.table)
+                    if logger is not None:
+                        logger.info('\n' + table.table)
 
                 if metric_items is None:
                     metric_items = [
@@ -242,7 +246,8 @@ class COCOEvaluator(BaseEvaluator):
                     eval_results[key] = float(f'{round(val, 3)}')
 
                 ap = coco_eval.stats[:6]
-                logger.info(f'{metric}_mAP_copypaste: {ap[0]:.3f} '
-                            f'{ap[1]:.3f} {ap[2]:.3f} {ap[3]:.3f} '
-                            f'{ap[4]:.3f} {ap[5]:.3f}')
+                if logger is not None:
+                    logger.info(f'{metric}_mAP_copypaste: {ap[0]:.3f} '
+                                f'{ap[1]:.3f} {ap[2]:.3f} {ap[3]:.3f} '
+                                f'{ap[4]:.3f} {ap[5]:.3f}')
         return eval_results
