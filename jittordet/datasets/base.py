@@ -117,7 +117,7 @@ class BaseDetDataset(Dataset):
         for k, v in datasetwise_cfg.items():
             if hasattr(self, k):
                 raise RuntimeError(f'Attr {k} has been set in {type(self)}')
-            if 'path' in k and not osp.isabs(v):
+            if ('path' in k or 'file' in k) and not osp.isabs(v):
                 v = osp.join(self.data_root, v)
             setattr(self, k, v)
 

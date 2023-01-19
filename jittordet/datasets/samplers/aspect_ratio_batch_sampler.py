@@ -8,12 +8,19 @@ from .base_batch_sampler import BaseBatchSampler
 @BATCH_SAMPLERS.register_module()
 class AspectRatioBatchSampler(BaseBatchSampler):
 
+    def __init__(self, dataset, drop_last=False):
+        super().__init__(dataset=dataset)
+        self.drop_last = drop_last
+
     def __len__(self):
         return self.batch_len
 
     @property
     def batch_len(self):
-        return self.data_list_len // self.batch_size
+        length = self.data_list_len // self.batch_size
+        if self.drop_last:
+            length += 1
+        return length
 
     def get_index_list(self, rng=None):
         if rng is None:

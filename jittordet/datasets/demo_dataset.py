@@ -1,15 +1,25 @@
-import jittor as jt
-from jittor.dataset import Dataset
-
-from jittordet.engine import DATASETS
+from ..engine import DATASETS
+from .base import BaseDetDataset
 
 
 @DATASETS.register_module()
-class DemoDataset(Dataset):
+class DemoDataset(BaseDetDataset):
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.total_len = 1000
-
-    def __getitem__(self, idx):
-        return dict(data=jt.zeros([1, 256, 5, 5]))
+    def load_data_list(self):
+        data = [
+            dict(width=2, height=1),
+            dict(width=1, height=2),
+            dict(width=2, height=1),
+            dict(width=2, height=1),
+            dict(width=1, height=2),
+            dict(width=2, height=1),
+            dict(width=2, height=1),
+            dict(width=1, height=2),
+            dict(width=2, height=1),
+            dict(width=2, height=1),
+            dict(width=1, height=2),
+            dict(width=2, height=1),
+            dict(width=2, height=1),
+            dict(width=1, height=2),
+        ]
+        return data

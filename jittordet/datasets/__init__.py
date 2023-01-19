@@ -1,7 +1,11 @@
 from .base import BaseDetDataset
-from .coco import COCODataset
-from .samplers import *  # noqa F401, F403
+from .coco import CocoDataset
+from .samplers import (AspectRatioBatchSampler, BaseBatchSampler,
+                       PadBatchSampler)
 # from .transforms import *  # noqa: F401, F403
-from .voc import VOCDataset
+from .voc import VocDataset
 
-__all__ = ['BaseDetDataset', 'COCODataset', 'VOCDataset']
+__all__ = [
+    'BaseDetDataset', 'CocoDataset', 'VocDataset', 'BaseBatchSampler',
+    'PadBatchSampler', 'AspectRatioBatchSampler'
+]
