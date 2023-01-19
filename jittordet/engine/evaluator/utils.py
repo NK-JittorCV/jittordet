@@ -1,9 +1,11 @@
-import numpy as np
-from multiprocessing import Pool
 from collections.abc import Sequence
+from multiprocessing import Pool
+
+import numpy as np
+from terminaltables import AsciiTable
 
 from ..logger import print_log
-from terminaltables import AsciiTable
+
 
 def bbox_overlaps(bboxes1,
                   bboxes2,
@@ -50,6 +52,7 @@ def bbox_overlaps(bboxes1,
         ious = ious.T
     return ious
 
+
 def average_precision(recalls, precisions, mode='area'):
     """Calculate average precision (for single or multiple scales)."""
     no_scale = False
@@ -84,6 +87,7 @@ def average_precision(recalls, precisions, mode='area'):
     if no_scale:
         ap = ap[0]
     return ap
+
 
 def tpfp_imagenet(det_bboxes,
                   gt_bboxes,
@@ -171,6 +175,7 @@ def tpfp_imagenet(det_bboxes,
                 if area >= min_area and area < max_area:
                     fp[k, i] = 1
     return tp, fp
+
 
 def tpfp_default(det_bboxes,
                  gt_bboxes,
@@ -607,8 +612,9 @@ def eval_map(det_results,
             if cls_result['num_gts'] > 0:
                 aps.append(cls_result['ap'])
         mean_ap = np.array(aps).mean().item() if aps else 0.0
-        
-    print_map_summary(mean_ap, eval_results, dataset, area_ranges, logger=logger)
+
+    print_map_summary(
+        mean_ap, eval_results, dataset, area_ranges, logger=logger)
     return mean_ap, eval_results
 
 
@@ -618,6 +624,7 @@ def print_map_summary(mean_ap,
                       scale_ranges=None,
                       logger=None):
     """Print mAP and results of each class.
+
     A table will be printed to show the gts/dets/recall/AP of each class and
     the mAP.
     Args:

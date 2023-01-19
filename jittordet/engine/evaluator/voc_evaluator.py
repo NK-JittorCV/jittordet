@@ -1,18 +1,18 @@
 import warnings
+from collections import OrderedDict
+from typing import List, Optional, Sequence, Union
+
 import numpy as np
 
-
-from typing import List, Optional, Sequence, Union
-from collections import OrderedDict
-
+from ..register import EVALUATORS
 from .base_evaluator import BaseEvaluator
 from .utils import eval_map, eval_recalls
-from ..register import EVALUATORS
 
 
 @EVALUATORS.register_module()
 class VOCEvaluator(BaseEvaluator):
-    def __init__(self, 
+
+    def __init__(self,
                  iou_thrs: Union[float, List[float]] = 0.5,
                  scale_ranges: Optional[List[tuple]] = None,
                  metric: Union[str, List[str]] = 'mAP',
@@ -35,7 +35,7 @@ class VOCEvaluator(BaseEvaluator):
         assert eval_mode in ['area', '11points'], \
             'Unrecognized mode, only "area" and "11points" are supported'
         self.eval_mode = eval_mode
-    
+
     def process_results(self, results):
         preds = []
         for result in results:
@@ -51,7 +51,7 @@ class VOCEvaluator(BaseEvaluator):
                 dets.append(pred_bbox_scores)
             preds.append(dets)
         return preds
-    
+
     def process_dataset(self, dataset, index):
         gts = []
         for i in index:
@@ -65,20 +65,19 @@ class VOCEvaluator(BaseEvaluator):
                 labels_ignore=gt_ignore_instances['labels'].cpu().numpy())
             gts.append(ann)
         return gts
-    
-    def evaluate(self, 
-                 dataset, 
-                 results, 
-                 work_dir=None, 
-                 epoch=None, 
+
+    def evaluate(self,
+                 dataset,
+                 results,
+                 work_dir=None,
+                 epoch=None,
                  logger=None):
-        
+
         # process results
         preds = self.process_results(results)
         # process datasets
         gts = self.process_dataset(dataset, range(len(preds)))
-        
-        
+
         eval_results = OrderedDict()
         if self.metric == 'mAP':
             assert isinstance(self.iou_thrs, list)

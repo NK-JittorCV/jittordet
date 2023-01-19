@@ -1,29 +1,30 @@
-
-import os
 import json
-import warnings
-import numpy as np
+import os
 import os.path as osp
+import warnings
+
+import numpy as np
+
 try:
     from pycocotools.coco import COCO
     from pycocotools.cocoeval import COCOeval
 except:  # noqa E722
     warnings.warn('pycocotools is not installed!')
 
-
-from typing import Dict, List, Optional, Sequence, Union
-from collections import OrderedDict
 import itertools
+from collections import OrderedDict
+from typing import List, Optional, Sequence, Union
 
 from terminaltables import AsciiTable
 
-from .base_evaluator import BaseEvaluator
 from ..register import EVALUATORS
+from .base_evaluator import BaseEvaluator
 
 
 @EVALUATORS.register_module()
 class COCOEvaluator(BaseEvaluator):
-    def __init__(self, 
+
+    def __init__(self,
                  ann_file: Optional[str] = None,
                  metric: Union[str, List[str]] = 'bbox',
                  classwise: bool = False,
@@ -38,24 +39,26 @@ class COCOEvaluator(BaseEvaluator):
         allowed_metrics = ['bbox', 'proposal']
         for metric in self.metrics:
             if metric not in allowed_metrics:
-                raise KeyError("metric should be one of 'bbox', 'segm', 'proposal', "f"'proposal_fast', but got {metric}.")
-        
-        
+                raise KeyError(
+                    "metric should be one of 'bbox', 'segm', 'proposal', "
+                    f"'proposal_fast', but got {metric}.")
+
         # do class wise evaluation, default False
         self.classwise = classwise
-        
+
         # proposal_nums used to compute recall or precision.
         self.proposal_nums = list(proposal_nums)
-        
+
         # iou_thrs used to compute recall or precision.
         self.iou_thrs = None
         if iou_thrs is None:
-            self.iou_thrs = np.linspace(.5, 0.95, int(np.round((0.95 - .5) / .05)) + 1, endpoint=True)
-            
+            self.iou_thrs = np.linspace(
+                .5, 0.95, int(np.round((0.95 - .5) / .05)) + 1, endpoint=True)
+
         self.metric_items = metric_items
         self.format_only = format_only
         self.outfile_prefix = outfile_prefix
-        
+
         # if ann_file is not specified,
         # initialize coco api with the converted dataset
         if ann_file is not None:
@@ -67,8 +70,8 @@ class COCOEvaluator(BaseEvaluator):
         # handle dataset lazy init
         self.cat_ids = None
         self.img_ids = None
-    
-    def process_results(self,results):
+
+    def process_results(self, results):
         preds = []
         for result in results:
             pred = dict()
@@ -79,9 +82,10 @@ class COCOEvaluator(BaseEvaluator):
             pred['labels'] = result_['labels'].cpu().numpy()
             preds.append(pred)
         return preds
-    
+
     def results2json(self, results, save_file):
         """Convert detection results to COCO json style."""
+
         def xyxy2xywh(box):
             x1, y1, x2, y2 = box.tolist()
             return [x1, y1, x2 - x1, y2 - y1]
@@ -104,42 +108,38 @@ class COCOEvaluator(BaseEvaluator):
 
     def build_file(self, epoch):
         os.makedirs(self.outfile_prefix, exist_ok=True)
-        filename = "val_{}.json"
-        return osp.join(self.outfile_prefix,filename.format(epoch))
-    
-    def evaluate(self, 
-                 dataset, 
-                 results, 
-                 work_dir, 
-                 epoch, 
-                 logger=None):
-        
+        filename = 'val_{}.json'
+        return osp.join(self.outfile_prefix, filename.format(epoch))
+
+    def evaluate(self, dataset, results, work_dir, epoch, logger=None):
+
         # preprocess results
         preds = self.process_results(results)
-        
+
         # build json file
         if self.outfile_prefix is None:
-            self.outfile_prefix = osp.join(work_dir, prefix=f'detections')
+            self.outfile_prefix = osp.join(work_dir, prefix='detections')
         save_file = self.build_file(epoch)
-        
+
         # convert predictions to coco format and dump to json file
         self.results2json(preds, save_file)
-        
+
         eval_results = OrderedDict()
         if self.format_only:
             if logger is not None:
-                logger.info('results are saved in 'f'{osp.dirname(self.outfile_prefix)}')
+                logger.info('results are saved in '
+                            f'{osp.dirname(self.outfile_prefix)}')
             return eval_results
-        
+
         # handle lazy init
         if self._coco_api is None:
             self._coco_api = dataset.coco
         if self.cat_ids is None:
-            self.cat_ids = self._coco_api.get_cat_ids(cat_names=dataset.metainfo.get('classes'))
+            self.cat_ids = self._coco_api.get_cat_ids(
+                cat_names=dataset.metainfo.get('classes'))
         if self.img_ids is None:
             self.img_ids = self._coco_api.get_img_ids()
-        
-        
+
         for metric in self.metrics:
             if logger is not None:
                 logger.info(f'Evaluating {metric}...')
@@ -157,7 +157,7 @@ class COCOEvaluator(BaseEvaluator):
             coco_eval.params.imgIds = self.img_ids
             coco_eval.params.maxDets = list(self.proposal_nums)
             coco_eval.params.iouThrs = self.iou_thrs
-            
+
             # mapping of cocoEval.stats
             coco_metric_names = {
                 'mAP': 0,
@@ -179,7 +179,7 @@ class COCOEvaluator(BaseEvaluator):
                     if metric_item not in coco_metric_names:
                         raise KeyError(
                             f'metric item "{metric_item}" is not supported')
-            
+
             if metric == 'proposal':
                 coco_eval.params.useCats = 0
                 coco_eval.evaluate()
