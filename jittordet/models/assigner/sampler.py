@@ -1,7 +1,8 @@
 from abc import ABCMeta, abstractmethod
-import jittor as jt 
-import numpy as np
+
+import jittor as jt
 from jdet.utils.registry import BOXES
+
 
 class SamplingResult:
 
@@ -19,7 +20,8 @@ class SamplingResult:
         if gt_bboxes.numel() == 0:
             # hack for index error case
             assert self.pos_assigned_gt_inds.numel() == 0
-            self.pos_gt_bboxes = jt.empty(gt_bboxes.size(), dtype=gt_bboxes.dtype).view(-1, 4)
+            self.pos_gt_bboxes = jt.empty(
+                gt_bboxes.size(), dtype=gt_bboxes.dtype).view(-1, 4)
         else:
             if len(gt_bboxes.shape) < 2:
                 gt_bboxes = gt_bboxes.view(-1, 4)
@@ -63,6 +65,7 @@ class BaseSampler(metaclass=ABCMeta):
                gt_labels=None,
                **kwargs):
         """Sample positive and negative bboxes.
+
         This is a simple implementation of bbox sampling given candidates,
         assigning results and ground truth bboxes.
         Args:
@@ -83,11 +86,12 @@ class BaseSampler(metaclass=ABCMeta):
         if self.add_gt_as_proposals:
             bboxes = jt.contrib.concat([gt_bboxes, bboxes], dim=0)
             assign_result.add_gt_(gt_labels)
-            gt_ones = jt.ones((gt_bboxes.shape[0],)).bool()
+            gt_ones = jt.ones((gt_bboxes.shape[0], )).bool()
             gt_flags = jt.contrib.concat([gt_ones, gt_flags])
 
         num_expected_pos = int(self.num * self.pos_fraction)
-        pos_inds = self._sample_pos(assign_result, num_expected_pos, bboxes=bboxes, **kwargs)
+        pos_inds = self._sample_pos(
+            assign_result, num_expected_pos, bboxes=bboxes, **kwargs)
         # We found that sampled indices have duplicated items occasionally.
         # (may be a bug of PyTorch)
         pos_inds = pos_inds.unique()
@@ -108,6 +112,7 @@ class BaseSampler(metaclass=ABCMeta):
         return SamplingResult(pos_inds, neg_inds, bboxes, gt_bboxes,
                               assign_result, gt_flags)
 
+
 class PseudoSampler(BaseSampler):
 
     def __init__(self, **kwargs):
@@ -122,9 +127,11 @@ class PseudoSampler(BaseSampler):
     def sample(self, assign_result, bboxes, gt_bboxes, **kwargs):
         pos_inds = jt.nonzero(assign_result.gt_inds > 0).squeeze(-1).unique()
         neg_inds = jt.nonzero(assign_result.gt_inds == 0).squeeze(-1).unique()
-        gt_flags = jt.zeros((bboxes.shape[0],)).bool()
-        sampling_result = SamplingResult(pos_inds, neg_inds, bboxes, gt_bboxes,assign_result, gt_flags)
+        gt_flags = jt.zeros((bboxes.shape[0], )).bool()
+        sampling_result = SamplingResult(pos_inds, neg_inds, bboxes, gt_bboxes,
+                                         assign_result, gt_flags)
         return sampling_result
+
 
 @BOXES.register_module()
 class RandomSampler(BaseSampler):
@@ -140,12 +147,11 @@ class RandomSampler(BaseSampler):
 
     @staticmethod
     def random_choice(gallery, num):
-        """Random select some elements from the gallery.
-        """
+        """Random select some elements from the gallery."""
         assert len(gallery) >= num
         is_tensor = isinstance(gallery, jt.Var)
         if not is_tensor:
-            gallery = jt.array(gallery, dtype="int64")
+            gallery = jt.array(gallery, dtype='int64')
         perm = jt.randperm(gallery.numel())[:num]
         rand_inds = gallery[perm]
         if not is_tensor:
@@ -172,16 +178,19 @@ class RandomSampler(BaseSampler):
         else:
             return self.random_choice(neg_inds, num_expected)
 
+
 @BOXES.register_module()
 class RandomSamplerRotated(RandomSampler):
+
     def __init__(self,
                  num,
                  pos_fraction,
                  neg_pos_ub=-1,
                  add_gt_as_proposals=True,
                  **kwargs):
-        super(RandomSamplerRotated, self).__init__(num, pos_fraction, neg_pos_ub,
-                                            add_gt_as_proposals)
+        super(RandomSamplerRotated,
+              self).__init__(num, pos_fraction, neg_pos_ub,
+                             add_gt_as_proposals)
 
     def sample(self,
                assign_result,
@@ -195,14 +204,13 @@ class RandomSamplerRotated(RandomSampler):
 
         if len(bboxes.shape) < 2:
             bboxes = bboxes[None, :]
-        # this is the only difference between RandomSamplerRotated and RandomSampler
         bboxes = bboxes[:, :5]
 
-        gt_flags = jt.zeros((bboxes.shape[0],)).bool()
+        gt_flags = jt.zeros((bboxes.shape[0], )).bool()
         if self.add_gt_as_proposals:
             bboxes = jt.contrib.concat([gt_bboxes, bboxes], dim=0)
             assign_result.add_gt_(gt_labels)
-            gt_ones = jt.ones((gt_bboxes.shape[0],)).bool()
+            gt_ones = jt.ones((gt_bboxes.shape[0], )).bool()
             gt_flags = jt.contrib.concat([gt_ones, gt_flags])
 
         num_expected_pos = int(self.num * self.pos_fraction)

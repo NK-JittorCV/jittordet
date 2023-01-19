@@ -1,9 +1,13 @@
-import jittor as jt 
-from jittor import nn
 import warnings
+
+from jittor import nn
+
+from jittordet.utils import BRICKS, constant_init, init, kaiming_init
+
 
 class ConvModule(nn.Module):
     """A conv block that bundles conv/norm/activation layers.
+
     This block simplifies the usage of convolution layers, which are commonly
     used with a norm layer (e.g., BatchNorm) and activation layer (e.g., ReLU).
     It is based upon three build methods: `build_conv_layer()`,
@@ -92,7 +96,8 @@ class ConvModule(nn.Module):
 
         if self.with_explicit_padding:
             pad_cfg = dict(type=padding_mode)
-            self.padding_layer = build_from_cfg(pad_cfg,BRICKS, padding=padding)
+            self.padding_layer = build_from_cfg(
+                pad_cfg, BRICKS, padding=padding)
 
         # reset padding to 0 for conv module
         conv_padding = 0 if self.with_explicit_padding else padding
@@ -129,14 +134,16 @@ class ConvModule(nn.Module):
                 norm_channels = out_channels
             else:
                 norm_channels = in_channels
-            if norm_cfg.get("type","BN") == "GN":
-                self.gn = build_from_cfg(norm_cfg, BRICKS,num_channels=norm_channels)
-                self.norm = "gn"
+            if norm_cfg.get('type', 'BN') == 'GN':
+                self.gn = build_from_cfg(
+                    norm_cfg, BRICKS, num_channels=norm_channels)
+                self.norm = 'gn'
             else:
-                self.bn = build_from_cfg(norm_cfg, BRICKS,in_channels=norm_channels)
-                self.norm = "bn"
+                self.bn = build_from_cfg(
+                    norm_cfg, BRICKS, in_channels=norm_channels)
+                self.norm = 'bn'
         else:
-            self.norm = "None"
+            self.norm = 'None'
 
         # build activation layer
         if self.with_activation:
@@ -144,7 +151,7 @@ class ConvModule(nn.Module):
             if act_cfg_['type'] not in [
                     'Tanh', 'PReLU', 'Sigmoid', 'HSigmoid', 'Swish'
             ]:
-                self.activate = build_from_cfg(act_cfg_,BRICKS)
+                self.activate = build_from_cfg(act_cfg_, BRICKS)
 
         # Use msra init by default
         self.init_weights()
@@ -177,15 +184,16 @@ class ConvModule(nn.Module):
                     x = self.padding_layer(x)
                 x = self.conv(x)
             elif layer == 'norm' and norm and self.with_norm:
-                x = getattr(self,self.norm)(x)
+                x = getattr(self, self.norm)(x)
             elif layer == 'act' and activate and self.with_activation:
                 x = self.activate(x)
         return x
 
-def build_from_cfg(cfg,registry,**kwargs):
-    if isinstance(cfg,str):
+
+def build_from_cfg(cfg, registry, **kwargs):
+    if isinstance(cfg, str):
         return registry.get(cfg)(**kwargs)
-    elif isinstance(cfg,dict):
+    elif isinstance(cfg, dict):
         args = cfg.copy()
         args.update(kwargs)
         obj_type = args.pop('type')
@@ -193,18 +201,20 @@ def build_from_cfg(cfg,registry,**kwargs):
         try:
             module = obj_cls(**args)
         except TypeError as e:
-            if "<class" not in str(e):
-                e = f"{obj_cls}.{e}"
+            if '<class' not in str(e):
+                e = f'{obj_cls}.{e}'
             raise TypeError(e)
 
         return module
-    elif isinstance(cfg,list):
+    elif isinstance(cfg, list):
         from jittor import nn
-        return nn.Sequential([build_from_cfg(c,registry,**kwargs) for c in cfg])
+        return nn.Sequential(
+            [build_from_cfg(c, registry, **kwargs) for c in cfg])
     elif cfg is None:
         return None
     else:
-        raise TypeError(f"type {type(cfg)} not support")
+        raise TypeError(f'type {type(cfg)} not support')
+
 
 def xavier_init(module, gain=1, bias=0, distribution='normal'):
     assert distribution in ['uniform', 'normal']
@@ -374,7 +384,7 @@ class FPN(nn.Module):
             #  it cannot co-exist with `size` in `F.interpolate`.
             if 'scale_factor' in self.upsample_cfg:
                 laterals[i - 1] += nn.interpolate(laterals[i],
-                                                 **self.upsample_cfg)
+                                                  **self.upsample_cfg)
             else:
                 prev_shape = laterals[i - 1].shape[2:]
                 laterals[i - 1] += nn.interpolate(
@@ -391,7 +401,7 @@ class FPN(nn.Module):
             # (e.g., Faster R-CNN, Mask R-CNN)
             if not self.add_extra_convs:
                 for i in range(self.num_outs - used_backbone_levels):
-                    outs.append(nn.pool(outs[-1], 1, stride=2,op="maximum"))
+                    outs.append(nn.pool(outs[-1], 1, stride=2, op='maximum'))
             # add conv layers on top of original feature maps (RetinaNet)
             else:
                 if self.add_extra_convs == 'on_input':
