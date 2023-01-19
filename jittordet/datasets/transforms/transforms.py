@@ -93,8 +93,6 @@ class Resize:
             results['scale'] = _scale_size(img_shape[::-1], self.scale_factor)
         self._resize_img(results)
         self._resize_bboxes(results)
-        self._resize_seg(results)
-        self._resize_keypoints(results)
         return results
 
     def __repr__(self):
