@@ -3,10 +3,12 @@
 import copy
 import os.path as osp
 
+import jittor as jt
 import numpy as np
 from jittor.dataset import Dataset
 
 from jittordet.engine import BATCH_SAMPLERS, DATASETS, TRANSFORMS
+from jittordet.structures import DetDataSample, InstanceData
 
 
 class Compose:
@@ -174,4 +176,25 @@ class BaseDetDataset(Dataset):
 
     def collate_batch(self, batch):
         """Disable batch collating function in jittor.utils.dataset."""
+        return batch
+
+    def to_jittor(self, batch):
+        """Override to_jittor function in jittor.utils.dataset."""
+        if self.keep_numpy_array:
+            return batch
+        if isinstance(batch, jt.Var):
+            return batch
+        if isinstance(batch, (InstanceData, DetDataSample)):
+            return batch.to_jittor(self.stop_grad)
+        if isinstance(batch, np.ndarray):
+            batch = jt.array(batch)
+            if self.stop_grad:
+                batch = batch.stop_grad()
+        if isinstance(batch, dict):
+            return {k: self.to_jittor(v) for k, v in batch.items()}
+        if isinstance(batch, list):
+            return [self.to_jittor(v) for v in batch]
+        if isinstance(batch, tuple):
+            batch = [self.to_jittor(v) for v in batch]
+            return tuple(batch)
         return batch

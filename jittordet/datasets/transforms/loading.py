@@ -1,100 +1,66 @@
-import os.path as osp
-
+import cv2
 import numpy as np
-from PIL import Image
 
-from jittordet.engine import TRANSFORM
+from jittordet.engine import TRANSFORMS
 
 
-@TRANSFORM.register_module()
+@TRANSFORMS.register_module()
 class LoadImageFromFile:
     """Load an image from file."""
 
-    def __init__(self, to_float32=False, image_colors=256, mode='RGB'):
+    def __init__(self, to_float32=False):
         self.to_float32 = to_float32
-        self.image_colors = image_colors
-        self.image_mode = mode
 
-    def __call__(self, data: dict) -> dict:
-        """Call functions to load image and get image meta information."""
-        if data['img_prefix'] is not None:
-            filename = osp.join(data['img_prefix'],
-                                data['img_info']['filename'])
-        else:
-            filename = data['img_info']['filename']
-
-        img = np.array(
-            Image.open(filename).convert(
-                mode=self.image_mode, colors=self.image_colors))
-
+    def __call__(self, results):
+        img = cv2.imread(results['img_path'])
         if self.to_float32:
             img = img.astype(np.float32)
 
-        data['filename'] = filename
-        data['ori_filename'] = data['img_info']['filename']
-        data['img'] = img
-        data['img_shape'] = img.shape
-        data['ori_shape'] = img.shape
-        data['img_fields'] = ['img']
-        return data
+        results['img'] = img
+        results['img_shape'] = img.shape[:2]
+        results['ori_shape'] = img.shape[:2]
+        return results
 
     def __repr__(self):
         repr_str = (f'{self.__class__.__name__}('
-                    f'to_float32={self.to_float32}, '
-                    f"image_colors='{self.image_colors}', "
-                    f'image_mode={self.image_mode})')
+                    f'to_float32={self.to_float32})')
         return repr_str
 
 
-@TRANSFORM.register_module()
+@TRANSFORMS.register_module()
 class LoadAnnotations:
     """Load multiple types of annotations."""
 
-    def __init__(self, with_bbox=True, with_label=True, denorm_bbox=False):
+    def __init__(self, with_bbox=True, with_label=True):
         self.with_bbox = with_bbox
         self.with_label = with_label
-        self.denorm_bbox = denorm_bbox
 
-    def _load_bboxes(self, data: dict) -> dict:
-        """Private function to load bounding box annotations."""
-        ann_info = data['ann_info']
-        data['gt_bboxes'] = ann_info['bboxes'].copy()
+    def _load_bboxes(self, results):
+        gt_bboxes = []
+        gt_ignore_flags = []
+        for instance in results.get('instances', []):
+            gt_bboxes.append(instance['bbox'])
+            gt_ignore_flags.append(instance['ignore_flag'])
 
-        if self.denorm_bbox:
-            bbox_num = data['gt_bboxes'].shape[0]
-            if bbox_num != 0:
-                h, w = data['img_shape'][:2]
-                data['gt_bboxes'][:, 0::2] *= w
-                data['gt_bboxes'][:, 1::2] *= h
+        results['gt_bboxes'] = np.array(
+            gt_bboxes, dtype=np.float32).reshape((-1, 4))
+        results['gt_ignore_flags'] = np.array(gt_ignore_flags, dtype=np.bool)
 
-        gt_bboxes_ignore = ann_info.get('bboxes_ignore', None)
-        if gt_bboxes_ignore is not None:
-            data['gt_bboxes_ignore'] = gt_bboxes_ignore.copy()
-            data['bbox_fields'].append('gt_bboxes_ignore')
-        data['bbox_fields'].append('gt_bboxes')
+    def _load_labels(self, results):
+        gt_bboxes_labels = []
+        for instance in results.get('instances', []):
+            gt_bboxes_labels.append(instance['bbox_label'])
+        results['gt_bboxes_labels'] = np.array(
+            gt_bboxes_labels, dtype=np.int64)
 
-        gt_is_group_ofs = ann_info.get('gt_is_group_ofs', None)
-        if gt_is_group_ofs is not None:
-            data['gt_is_group_ofs'] = gt_is_group_ofs.copy()
-
-        return data
-
-    def _load_labels(self, data: dict) -> dict:
-        """Private function to load label annotations."""
-        data['gt_labels'] = data['ann_info']['labels'].copy()
-        return data
-
-    def __call__(self, data: dict) -> dict:
-        """Call function to load multiple types annotations."""
+    def __call__(self, results):
         if self.with_bbox:
-            data = self._load_bboxes(data)
-            if data is None:
-                return None
+            self._load_bboxes(results)
         if self.with_label:
-            data = self._load_labels(data)
-        return data
+            self._load_labels(results)
+        return results
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         repr_str = self.__class__.__name__
         repr_str += f'(with_bbox={self.with_bbox}, '
         repr_str += f'with_label={self.with_label})'

@@ -1,10 +1,8 @@
-from .formatting import Collect, DefaultFormatBundle, WrapFieldsToLists
+from .formatting import PackDetInputs
 from .loading import LoadAnnotations, LoadImageFromFile
-from .test_time_aug import MultiScaleFlipAug
-from .transforms import Compose, Normalize, Pad, RandomFlip, Resize
+from .transforms import RandomChoiceResize, RandomFlip, RandomResize, Resize
 
 __all__ = [
-    'DefaultFormatBundle', 'Collect', 'WrapFieldsToLists', 'LoadImageFromFile',
-    'LoadAnnotations', 'Compose', 'Pad', 'Resize', 'RandomFlip', 'Normalize',
-    'MultiScaleFlipAug'
+    'PackDetInputs', 'LoadAnnotations', 'LoadImageFromFile', 'Resize',
+    'RandomResize', 'RandomChoiceResize', 'RandomFlip'
 ]

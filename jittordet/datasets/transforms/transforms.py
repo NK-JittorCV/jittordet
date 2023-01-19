@@ -1,381 +1,315 @@
-import collections
+from collections.abc import Sequence
 
 import numpy as np
 
-from jittordet.engine import TRANSFORM
-from ..utils import (imflip, imnormalize, impad, impad_to_multiple, imrescale,
-                     imresize)
+from jittordet.engine import TRANSFORMS
+from jittordet.utils import (_scale_size, imflip, imrescale, imresize,
+                             is_list_of, is_seq_of, is_tuple_of)
 
 
-@TRANSFORM.register_module()
+@TRANSFORMS.register_module()
 class Resize:
-    """Resize images & bbox & mask."""
 
     def __init__(self,
-                 img_scale=None,
-                 multiscale_mode='range',
-                 ratio_range=None,
-                 keep_ratio=True,
-                 bbox_clip_border=True,
+                 scale,
+                 scale_factor=None,
+                 keep_ratio=False,
+                 clip_object_border=True,
                  backend='cv2',
-                 interpolation='bilinear',
-                 override=False):
-        if img_scale is None:
-            self.img_scale = None
+                 interpolation='bilinear'):
+        assert scale is not None or scale_factor is not None, (
+            '`scale` and'
+            '`scale_factor` can not both be `None`')
+        if scale is None:
+            self.scale = None
         else:
-            if isinstance(img_scale, list):
-                self.img_scale = img_scale
+            if isinstance(scale, int):
+                self.scale = (scale, scale)
             else:
-                self.img_scale = [img_scale]
-            assert isinstance(self.img_scale[0], tuple)
-
-        if ratio_range is not None:
-            # mode 1: given a scale and a range of image ratio
-            assert len(self.img_scale) == 1
-        else:
-            # mode 2: given multiple scales or a range of scales
-            assert multiscale_mode in ['value', 'range']
+                self.scale = scale
 
         self.backend = backend
-        self.multiscale_mode = multiscale_mode
-        self.ratio_range = ratio_range
-        self.keep_ratio = keep_ratio
-        # TODO: refactor the override option in Resize
         self.interpolation = interpolation
-        self.override = override
-        self.bbox_clip_border = bbox_clip_border
-
-    @staticmethod
-    def random_select(img_scales):
-        """Randomly select an img_scale from given candidates."""
-        assert isinstance(img_scales[0], tuple)
-        scale_idx = np.random.randint(len(img_scales))
-        img_scale = img_scales[scale_idx]
-        return img_scale, scale_idx
-
-    @staticmethod
-    def random_sample(img_scales):
-        """Randomly sample an img_scale when ``multiscale_mode=='range'``."""
-        assert isinstance(img_scales[0], tuple) and len(img_scales) == 2
-        img_scale_long = [max(s) for s in img_scales]
-        img_scale_short = [min(s) for s in img_scales]
-        long_edge = np.random.randint(
-            min(img_scale_long),
-            max(img_scale_long) + 1)
-        short_edge = np.random.randint(
-            min(img_scale_short),
-            max(img_scale_short) + 1)
-        img_scale = (long_edge, short_edge)
-        return img_scale, None
-
-    @staticmethod
-    def random_sample_ratio(img_scale, ratio_range):
-        """Randomly sample an img_scale when ``ratio_range`` is specified."""
-        assert isinstance(img_scale, tuple) and len(img_scale) == 2
-        min_ratio, max_ratio = ratio_range
-        assert min_ratio <= max_ratio
-        ratio = np.random.random_sample() * (max_ratio - min_ratio) + min_ratio
-        scale = int(img_scale[0] * ratio), int(img_scale[1] * ratio)
-        return scale, None
-
-    def _random_scale(self, data: dict):
-        """Randomly sample an img_scale according to ``ratio_range`` and
-        ``multiscale_mode``."""
-
-        if self.ratio_range is not None:
-            scale, scale_idx = self.random_sample_ratio(
-                self.img_scale[0], self.ratio_range)
-        elif len(self.img_scale) == 1:
-            scale, scale_idx = self.img_scale[0], 0
-        elif self.multiscale_mode == 'range':
-            scale, scale_idx = self.random_sample(self.img_scale)
-        elif self.multiscale_mode == 'value':
-            scale, scale_idx = self.random_select(self.img_scale)
+        self.keep_ratio = keep_ratio
+        self.clip_object_border = clip_object_border
+        if scale_factor is None:
+            self.scale_factor = None
+        elif isinstance(scale_factor, float):
+            self.scale_factor = (scale_factor, scale_factor)
+        elif isinstance(scale_factor, tuple):
+            assert (len(scale_factor)) == 2
+            self.scale_factor = scale_factor
         else:
-            raise NotImplementedError
+            raise TypeError(
+                f'expect scale_factor is float or Tuple(float), but'
+                f'get {type(scale_factor)}')
 
-        data['scale'] = scale
-        data['scale_idx'] = scale_idx
+    def _resize_img(self, results: dict) -> None:
+        """Resize images with ``results['scale']``."""
 
-    def _resize_img(self, data: dict):
-        """Resize images with ``data['scale']``."""
-        for key in data.get('img_fields', ['img']):
+        if results.get('img', None) is not None:
             if self.keep_ratio:
                 img, scale_factor = imrescale(
-                    data[key],
-                    data['scale'],
-                    return_scale=True,
+                    results['img'],
+                    results['scale'],
                     interpolation=self.interpolation,
+                    return_scale=True,
                     backend=self.backend)
                 # the w_scale and h_scale has minor difference
                 # a real fix should be done in the mmcv.imrescale in the future
                 new_h, new_w = img.shape[:2]
-                h, w = data[key].shape[:2]
+                h, w = results['img'].shape[:2]
                 w_scale = new_w / w
                 h_scale = new_h / h
             else:
                 img, w_scale, h_scale = imresize(
-                    data[key],
-                    data['scale'],
-                    return_scale=True,
+                    results['img'],
+                    results['scale'],
                     interpolation=self.interpolation,
+                    return_scale=True,
                     backend=self.backend)
-            data[key] = img
+            results['img'] = img
+            results['img_shape'] = img.shape[:2]
+            results['scale_factor'] = (w_scale, h_scale)
+            results['keep_ratio'] = self.keep_ratio
 
-            scale_factor = np.array([w_scale, h_scale, w_scale, h_scale],
-                                    dtype=np.float32)
-            data['img_shape'] = img.shape
-            # in case that there is no padding
-            data['pad_shape'] = img.shape
-            data['scale_factor'] = scale_factor
-            data['keep_ratio'] = self.keep_ratio
+    def _resize_bboxes(self, results: dict) -> None:
+        """Resize bounding boxes with ``results['scale_factor']``."""
+        if results.get('gt_bboxes', None) is not None:
+            bboxes = results['gt_bboxes'] * np.tile(
+                np.array(results['scale_factor']), 2)
+            if self.clip_object_border:
+                bboxes[:, 0::2] = np.clip(bboxes[:, 0::2], 0,
+                                          results['img_shape'][1])
+                bboxes[:, 1::2] = np.clip(bboxes[:, 1::2], 0,
+                                          results['img_shape'][0])
+            results['gt_bboxes'] = bboxes
 
-    def _resize_bboxes(self, data: dict):
-        """Resize bounding boxes with ``data['scale_factor']``."""
-        for key in data.get('bbox_fields', []):
-            bboxes = data[key] * data['scale_factor']
-            if self.bbox_clip_border:
-                img_shape = data['img_shape']
-                bboxes[:, 0::2] = np.clip(bboxes[:, 0::2], 0, img_shape[1])
-                bboxes[:, 1::2] = np.clip(bboxes[:, 1::2], 0, img_shape[0])
-            data[key] = bboxes
-
-    def __call__(self, data: dict) -> dict:
-        """Call function to resize images, bounding boxes, masks, semantic
-        segmentation map."""
-
-        if 'scale' not in data:
-            if 'scale_factor' in data:
-                img_shape = data['img'].shape[:2]
-                scale_factor = data['scale_factor']
-                assert isinstance(scale_factor, float)
-                data['scale'] = tuple(
-                    [int(x * scale_factor) for x in img_shape][::-1])
-            else:
-                self._random_scale(data)
+    def __call__(self, results):
+        if self.scale:
+            results['scale'] = self.scale
         else:
-            if not self.override:
-                assert 'scale_factor' not in data, (
-                    'scale and scale_factor cannot be both set.')
-            else:
-                data.pop('scale')
-                if 'scale_factor' in data:
-                    data.pop('scale_factor')
-                self._random_scale(data)
-        self._resize_img(data)
-        self._resize_bboxes(data)
-        return data
+            img_shape = results['img'].shape[:2]
+            results['scale'] = _scale_size(img_shape[::-1], self.scale_factor)
+        self._resize_img(results)
+        self._resize_bboxes(results)
+        self._resize_seg(results)
+        self._resize_keypoints(results)
+        return results
 
     def __repr__(self):
         repr_str = self.__class__.__name__
-        repr_str += f'(img_scale={self.img_scale}, '
-        repr_str += f'multiscale_mode={self.multiscale_mode}, '
-        repr_str += f'ratio_range={self.ratio_range}, '
+        repr_str += f'(scale={self.scale}, '
+        repr_str += f'scale_factor={self.scale_factor}, '
         repr_str += f'keep_ratio={self.keep_ratio}, '
-        repr_str += f'bbox_clip_border={self.bbox_clip_border})'
+        repr_str += f'clip_object_border={self.clip_object_border}), '
+        repr_str += f'backend={self.backend}), '
+        repr_str += f'interpolation={self.interpolation})'
         return repr_str
 
 
-@TRANSFORM.register_module()
-class RandomFlip:
-    """Flip the image & bbox & mask."""
+@TRANSFORMS.register_module()
+class RandomResize:
+    """Random resize images & bboxs."""
 
-    def __init__(self, flip_ratio=None, direction='horizontal'):
-        if isinstance(flip_ratio, list):
-            for i in flip_ratio:
-                assert isinstance(i, float)
-            assert 0 <= sum(flip_ratio) <= 1
-        elif isinstance(flip_ratio, float):
-            assert 0 <= flip_ratio <= 1
-        elif flip_ratio is None:
-            pass
+    def __init__(self, scale, ratio_range, resize_type, **resize_kwargs):
+
+        self.scale = scale
+        self.ratio_range = ratio_range
+
+        self.resize_cfg = dict(type=resize_type, **resize_kwargs)
+        # create a empty Reisize object
+        self.resize = TRANSFORMS.build({'scale': 0, **self.resize_cfg})
+
+    @staticmethod
+    def _random_sample(scales):
+        """Randomly sample a scale from a list of tuples."""
+        assert is_list_of(scales, tuple) and len(scales) == 2
+        scale_0 = [scales[0][0], scales[1][0]]
+        scale_1 = [scales[0][1], scales[1][1]]
+        edge_0 = np.random.randint(min(scale_0), max(scale_0) + 1)
+        edge_1 = np.random.randint(min(scale_1), max(scale_1) + 1)
+        scale = (edge_0, edge_1)
+        return scale
+
+    @staticmethod
+    def _random_sample_ratio(scale, ratio_range):
+        """Randomly sample a scale from a tuple."""
+        assert isinstance(scale, tuple) and len(scale) == 2
+        min_ratio, max_ratio = ratio_range
+        assert min_ratio <= max_ratio
+        ratio = np.random.random_sample() * (max_ratio - min_ratio) + min_ratio
+        scale = int(scale[0] * ratio), int(scale[1] * ratio)
+        return scale
+
+    def _random_scale(self) -> tuple:
+        """Randomly sample an scale according to the type of ``scale``."""
+        if is_tuple_of(self.scale, int):
+            assert self.ratio_range is not None and len(self.ratio_range) == 2
+            scale = self._random_sample_ratio(
+                self.scale,  # type: ignore
+                self.ratio_range)
+        elif is_seq_of(self.scale, tuple):
+            scale = self._random_sample(self.scale)  # type: ignore
         else:
-            raise ValueError('flip_ratios must be None, float, '
-                             'or list of float')
-        self.flip_ratio = flip_ratio
+            raise NotImplementedError('Do not support sampling function '
+                                      f'for "{self.scale}"')
+
+        return scale
+
+    def __call__(self, results):
+        results['scale'] = self._random_scale()
+        self.resize.scale = results['scale']
+        results = self.resize(results)
+        return results
+
+    def __repr__(self):
+        repr_str = self.__class__.__name__
+        repr_str += f'(scale={self.scale}, '
+        repr_str += f'ratio_range={self.ratio_range}, '
+        repr_str += f'resize_cfg={self.resize_cfg})'
+        return repr_str
+
+
+@TRANSFORMS.register_module()
+class RandomChoiceResize:
+    """Resize images & bbox from a list of multiple scales."""
+
+    def __init__(self, scales, resize_type, **resize_kwargs):
+        if isinstance(scales, list):
+            self.scales = scales
+        else:
+            self.scales = [scales]
+        assert is_list_of(self.scales, tuple)
+
+        self.resize_cfg = dict(type=resize_type, **resize_kwargs)
+        # create a empty Resize object
+        self.resize = TRANSFORMS.build({'scale': 0, **self.resize_cfg})
+
+    def _random_select(self):
+        """Randomly select an scale from given candidates."""
+        assert is_list_of(self.scales, tuple)
+        scale_idx = np.random.randint(len(self.scales))
+        scale = self.scales[scale_idx]
+        return scale, scale_idx
+
+    def transform(self, results):
+        """Apply resize transforms on results from a list of scales."""
+        target_scale, scale_idx = self._random_select()
+        self.resize.scale = target_scale
+        results = self.resize(results)
+        results['scale_idx'] = scale_idx
+        return results
+
+    def __repr__(self) -> str:
+        repr_str = self.__class__.__name__
+        repr_str += f'(scales={self.scales}'
+        repr_str += f', resize_cfg={self.resize_cfg})'
+        return repr_str
+
+
+@TRANSFORMS.register_module()
+class RandomFlip:
+    """Flip the image & bbox."""
+
+    def __init__(self, prob=None, direction='horizontal'):
+        if isinstance(prob, list):
+            assert is_list_of(prob, float)
+            assert 0 <= sum(prob) <= 1
+        elif isinstance(prob, float):
+            assert 0 <= prob <= 1
+        else:
+            raise ValueError(f'probs must be float or list of float, but \
+                              got `{type(prob)}`.')
+        self.prob = prob
 
         valid_directions = ['horizontal', 'vertical', 'diagonal']
         if isinstance(direction, str):
             assert direction in valid_directions
         elif isinstance(direction, list):
-            for i in direction:
-                assert isinstance(i, str)
+            assert is_list_of(direction, str)
             assert set(direction).issubset(set(valid_directions))
         else:
-            raise ValueError('direction must be either str or list of str')
+            raise ValueError(f'direction must be either str or list of str, \
+                               but got `{type(direction)}`.')
         self.direction = direction
 
-        if isinstance(flip_ratio, list):
-            assert len(self.flip_ratio) == len(self.direction)
+        if isinstance(prob, list):
+            assert len(prob) == len(self.direction)
 
-    def bbox_flip(self, bboxes, img_shape, direction):
+    def _flip_bbox(self, bboxes: np.ndarray, img_shape, direction: str):
         """Flip bboxes horizontally."""
         assert bboxes.shape[-1] % 4 == 0
         flipped = bboxes.copy()
+        h, w = img_shape
         if direction == 'horizontal':
-            w = img_shape[1]
             flipped[..., 0::4] = w - bboxes[..., 2::4]
             flipped[..., 2::4] = w - bboxes[..., 0::4]
         elif direction == 'vertical':
-            h = img_shape[0]
             flipped[..., 1::4] = h - bboxes[..., 3::4]
             flipped[..., 3::4] = h - bboxes[..., 1::4]
         elif direction == 'diagonal':
-            w = img_shape[1]
-            h = img_shape[0]
             flipped[..., 0::4] = w - bboxes[..., 2::4]
             flipped[..., 1::4] = h - bboxes[..., 3::4]
             flipped[..., 2::4] = w - bboxes[..., 0::4]
             flipped[..., 3::4] = h - bboxes[..., 1::4]
         else:
-            raise ValueError(f"Invalid flipping direction '{direction}'")
+            raise ValueError(
+                f"Flipping direction must be 'horizontal', 'vertical', \
+                  or 'diagonal', but got '{direction}'")
         return flipped
 
-    def __call__(self, data):
-        """Call function to flip bounding boxes, masks, semantic segmentation
-        maps."""
-        if 'flip' not in data:
-            if isinstance(self.direction, list):
-                # None means non-flip
-                direction_list = self.direction + [None]
-            else:
-                # None means non-flip
-                direction_list = [self.direction, None]
+    def _choose_direction(self) -> str:
+        """Choose the flip direction according to `prob` and `direction`"""
+        if isinstance(self.direction,
+                      Sequence) and not isinstance(self.direction, str):
+            # None means non-flip
+            direction_list: list = list(self.direction) + [None]
+        elif isinstance(self.direction, str):
+            # None means non-flip
+            direction_list = [self.direction, None]
 
-            if isinstance(self.flip_ratio, list):
-                non_flip_ratio = 1 - sum(self.flip_ratio)
-                flip_ratio_list = self.flip_ratio + [non_flip_ratio]
-            else:
-                non_flip_ratio = 1 - self.flip_ratio
-                # exclude non-flip
-                single_ratio = self.flip_ratio / (len(direction_list) - 1)
-                flip_ratio_list = [single_ratio] * (len(direction_list) -
-                                                    1) + [non_flip_ratio]
-            cur_dir = np.random.choice(direction_list, p=flip_ratio_list)
-            data['flip'] = cur_dir is not None
-        if 'flip_direction' not in data:
-            data['flip_direction'] = cur_dir
-        if data['flip']:
-            # flip image
-            for key in data.get('img_fields', ['img']):
-                data[key] = imflip(data[key], direction=data['flip_direction'])
-            # flip bboxes
-            for key in data.get('bbox_fields', []):
-                data[key] = self.bbox_flip(data[key], data['img_shape'],
-                                           data['flip_direction'])
-        return data
+        if isinstance(self.prob, list):
+            non_prob: float = 1 - sum(self.prob)
+            prob_list = self.prob + [non_prob]
+        elif isinstance(self.prob, float):
+            non_prob = 1. - self.prob
+            # exclude non-flip
+            single_ratio = self.prob / (len(direction_list) - 1)
+            prob_list = [single_ratio] * (len(direction_list) - 1) + [non_prob]
 
-    def __repr__(self):
-        return self.__class__.__name__ + f'(flip_ratio={self.flip_ratio})'
+        cur_dir = np.random.choice(direction_list, p=prob_list)
 
+        return cur_dir
 
-@TRANSFORM.register_module()
-class Pad:
-    """Pad the image & masks & segmentation map."""
+    def _flip(self, results: dict) -> None:
+        """Flip images, bounding boxes, semantic segmentation map and
+        keypoints."""
+        # flip image
+        results['img'] = imflip(
+            results['img'], direction=results['flip_direction'])
 
-    def __init__(self,
-                 size=None,
-                 size_divisor=None,
-                 pad_to_square=False,
-                 pad_val=dict(img=0)):
-        self.size = size
-        self.size_divisor = size_divisor
-        if isinstance(pad_val, float) or isinstance(pad_val, int):
-            pad_val = dict(img=pad_val)
-        assert isinstance(pad_val, dict)
-        self.pad_val = pad_val
-        self.pad_to_square = pad_to_square
-        if pad_to_square:
-            assert size is None and size_divisor is None, \
-                'The size and size_divisor must be None ' \
-                'when pad2square is True'
+        img_shape = results['img'].shape[:2]
+
+        # flip bboxes
+        if results.get('gt_bboxes', None) is not None:
+            results['gt_bboxes'] = self._flip_bbox(results['gt_bboxes'],
+                                                   img_shape,
+                                                   results['flip_direction'])
+
+    def __call__(self, results):
+        cur_dir = self._choose_direction()
+        if cur_dir is None:
+            results['flip'] = False
+            results['flip_direction'] = None
         else:
-            assert size is not None or size_divisor is not None, \
-                'only one of size and size_divisor should be valid'
-            assert size is None or size_divisor is None
+            results['flip'] = True
+            results['flip_direction'] = cur_dir
+            self._flip(results)
+        return results
 
-    def __call__(self, data: dict) -> dict:
-        """Call function to pad images, masks, semantic segmentation maps."""
-        pad_val = self.pad_val.get('img', 0)
-        for key in data.get('img_fields', ['img']):
-            if self.pad_to_square:
-                max_size = max(data[key].shape[:2])
-                self.size = (max_size, max_size)
-            if self.size is not None:
-                padded_img = impad(data[key], shape=self.size, pad_val=pad_val)
-            elif self.size_divisor is not None:
-                padded_img = impad_to_multiple(
-                    data[key], self.size_divisor, pad_val=pad_val)
-            data[key] = padded_img
-        data['pad_shape'] = padded_img.shape
-        data['pad_fixed_size'] = self.size
-        data['pad_size_divisor'] = self.size_divisor
-        return data
-
-    def __repr__(self):
+    def __repr__(self) -> str:
         repr_str = self.__class__.__name__
-        repr_str += f'(size={self.size}, '
-        repr_str += f'size_divisor={self.size_divisor}, '
-        repr_str += f'pad_to_square={self.pad_to_square}, '
-        repr_str += f'pad_val={self.pad_val})'
+        repr_str += f'(prob={self.prob}, '
+        repr_str += f'direction={self.direction})'
         return repr_str
-
-
-@TRANSFORM.register_module()
-class Normalize:
-    """Normalize the image."""
-
-    def __init__(self, mean, std, to_rgb=True):
-        self.mean = np.array(mean, dtype=np.float32)
-        self.std = np.array(std, dtype=np.float32)
-        self.to_rgb = to_rgb
-
-    def __call__(self, data):
-        """Call function to normalize images."""
-        for key in data.get('img_fields', ['img']):
-            data[key] = imnormalize(data[key], self.mean, self.std,
-                                    self.to_rgb)
-        data['img_norm_cfg'] = dict(
-            mean=self.mean, std=self.std, to_rgb=self.to_rgb)
-        return data
-
-    def __repr__(self):
-        repr_str = self.__class__.__name__
-        repr_str += f'(mean={self.mean}, std={self.std}, to_rgb={self.to_rgb})'
-        return repr_str
-
-
-@TRANSFORM.register_module()
-class Compose:
-    """Compose multiple transforms sequentially."""
-
-    def __init__(self, transforms):
-        assert isinstance(transforms, collections.abc.Sequence)
-        self.transforms = []
-        for transform in transforms:
-            if isinstance(transform, dict):
-                # TODO: transform = build_from_cfg(transform, TRANSFORM)
-                self.transforms.append(transform)
-            elif callable(transform):
-                self.transforms.append(transform)
-            else:
-                raise TypeError('transform must be callable or a dict')
-
-    def __call__(self, data):
-        """Call function to apply transforms sequentially."""
-        for t in self.transforms:
-            data = t(data)
-            if data is None:
-                return None
-        return data
-
-    def __repr__(self):
-        format_string = self.__class__.__name__ + '('
-        for t in self.transforms:
-            str_ = t.__repr__()
-            if 'Compose(' in str_:
-                str_ = str_.replace('\n', '\n    ')
-            format_string += '\n'
-            format_string += f'    {str_}'
-        format_string += '\n)'
-        return format_string

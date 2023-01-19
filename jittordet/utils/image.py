@@ -11,11 +11,6 @@ except ImportError:
 
 imread_backend = 'cv2'
 
-__all__ = [
-    'imresize', 'imrescale', 'imflip', 'imnormalize', 'impad',
-    'impad_to_multiple'
-]
-
 
 def _scale_size(
     size: Tuple[int, int],
