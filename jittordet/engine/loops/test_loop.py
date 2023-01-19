@@ -16,6 +16,8 @@ class TestLoop(BaseLoop):
         results = []
         for idx, data_batch in enumerate(self.runner.test_dataset):
             results.extend(self.run_iter(idx, data_batch))
+        if len(results) > self.runner.test_dataset.total_len:
+            results = results[:self.runner.test_dataset.total_len]
 
         # compute metrics
         evaluator = self.runner.test_evaluator
