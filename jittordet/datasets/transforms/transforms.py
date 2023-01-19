@@ -110,7 +110,11 @@ class Resize:
 class RandomResize:
     """Random resize images & bboxs."""
 
-    def __init__(self, scale, ratio_range, resize_type, **resize_kwargs):
+    def __init__(self,
+                 scale,
+                 ratio_range=None,
+                 resize_type='Resize',
+                 **resize_kwargs):
 
         self.scale = scale
         self.ratio_range = ratio_range
@@ -173,7 +177,7 @@ class RandomResize:
 class RandomChoiceResize:
     """Resize images & bbox from a list of multiple scales."""
 
-    def __init__(self, scales, resize_type, **resize_kwargs):
+    def __init__(self, scales, resize_type='Resize', **resize_kwargs):
         if isinstance(scales, list):
             self.scales = scales
         else:
@@ -191,7 +195,7 @@ class RandomChoiceResize:
         scale = self.scales[scale_idx]
         return scale, scale_idx
 
-    def transform(self, results):
+    def __call__(self, results):
         """Apply resize transforms on results from a list of scales."""
         target_scale, scale_idx = self._random_select()
         self.resize.scale = target_scale

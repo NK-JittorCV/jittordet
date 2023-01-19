@@ -1,4 +1,4 @@
-import abc
+from collections import abc
 
 
 def is_seq_of(seq, expected_type, seq_type=None):
