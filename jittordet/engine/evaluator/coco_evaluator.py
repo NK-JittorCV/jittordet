@@ -22,7 +22,7 @@ from .base_evaluator import BaseEvaluator
 
 
 @EVALUATORS.register_module()
-class COCOEvaluator(BaseEvaluator):
+class CocoEvaluator(BaseEvaluator):
 
     def __init__(self,
                  ann_file: Optional[str] = None,

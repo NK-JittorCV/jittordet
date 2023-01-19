@@ -10,7 +10,7 @@ from .utils import eval_map, eval_recalls
 
 
 @EVALUATORS.register_module()
-class VOCEvaluator(BaseEvaluator):
+class VocEvaluator(BaseEvaluator):
 
     def __init__(self,
                  iou_thrs: Union[float, List[float]] = 0.5,
