@@ -2,6 +2,8 @@ import jittor as jt
 from jittor import nn
 from jittor.misc import _pair
 
+__all__ = ['ROIAlign']
+
 CUDA_HEADER = r'''
 #include <cmath>
 #include <cstdio>
