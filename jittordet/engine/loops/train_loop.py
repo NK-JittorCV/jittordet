@@ -42,7 +42,7 @@ class EpochTrainLoop(BaseLoop):
         self.runner.call_hook(
             'before_train_iter', batch_idx=idx, data_batch=data_batch)
 
-        outputs = self.runner.model(**data_batch, phase='loss')
+        outputs = self.runner.model(data_batch, phase='loss')
         self.runner.optimizer.step(outputs['loss'])
         for _scheduler in self.runner.scheduler:
             # for warmup scheduler

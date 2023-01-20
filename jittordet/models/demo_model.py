@@ -6,14 +6,14 @@ from jittordet.engine import MODELS
 @MODELS.register_module()
 class DemoModel(nn.Module):
 
-    def __init__(self):
+    def __init__(self, preprocessor):
         super().__init__()
-        self.conv = nn.Conv2d(256, 256, 3)
+        self.preprocessor = MODELS.build(preprocessor)
+        self.conv = nn.Conv2d(3, 1, 3)
 
     def execute(self, data, phase='loss'):
-        data = data[0]
-        loss = self.conv(data).mean()
-        if phase == 'loss':
-            return dict(loss=loss)
-        elif phase == 'predict':
-            return [loss]
+        data = self.preprocessor(data, training=True)
+        import pdb
+        pdb.set_trace()
+        results = self.conv(data['inputs'])
+        return dict(loss=results.sum())

@@ -1,5 +1,3 @@
-# modified from mmengine.dataset.BaseDataset
-
 import copy
 import os.path as osp
 
@@ -175,8 +173,29 @@ class BaseDetDataset(Dataset):
             return super()._get_index_list()
 
     def collate_batch(self, batch):
-        """Disable batch collating function in jittor.utils.dataset."""
-        return batch
+        """Override original `collate_batch` to disable stack."""
+        if isinstance(batch[0], dict):
+            new_batch = dict()
+            for key in batch[0].keys():
+                value = [data[key] for data in batch]
+                value = self.collate_batch(value)
+                new_batch[key] = value
+        elif isinstance(batch[0], list):
+            new_batch = list()
+            for i in range(len(batch[0])):
+                value = [data[i] for data in batch]
+                value = self.collate_batch(value)
+                new_batch.append(value)
+        elif isinstance(batch[0], tuple):
+            new_batch = list()
+            for i in range(len(batch[0])):
+                value = [data[i] for data in batch]
+                value = self.collate_batch(value)
+                new_batch.append(value)
+            new_batch = tuple(new_batch)
+        else:
+            new_batch = batch
+        return new_batch
 
     def to_jittor(self, batch):
         """Override to_jittor function in jittor.utils.dataset."""

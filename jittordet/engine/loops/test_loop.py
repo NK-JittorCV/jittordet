@@ -30,7 +30,7 @@ class TestLoop(BaseLoop):
         self.runner.call_hook(
             'before_test_iter', batch_idx=idx, data_batch=data_batch)
 
-        outputs = self.runner.model(**data_batch, phase='predict')
+        outputs = self.runner.model(data_batch, phase='predict')
         if jt.in_mpi:
             all_rank_results = []
             for i in range(jt.world_size):
