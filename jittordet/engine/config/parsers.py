@@ -58,7 +58,19 @@ def default_var_parsers(cfg):
         set_leaf(cfg, keys, value)
 
 
-cfg_parsers = [
-    env_variable_parsers,
-    default_var_parsers,
-]
+def tuple_parsers(cfg):
+    for keys, value in iter_leaves(cfg):
+        if not isinstance(value, str):
+            continue
+
+        if value.startswith('(') and value.endswith(')'):
+            try:
+                value = eval(value)
+            except:  # noqa: E722
+                pass
+
+            if isinstance(value, tuple):
+                set_leaf(cfg, keys, value)
+
+
+cfg_parsers = [env_variable_parsers, default_var_parsers, tuple_parsers]
