@@ -1,5 +1,8 @@
+# Modified from jdet/python/models/backbones/resnet.py
 import jittor as jt
 from jittor import nn
+
+from jittordet.engine import MODELS
 
 
 def conv3x3(in_planes, out_planes, stride=1, groups=1, dilation=1):
@@ -67,6 +70,7 @@ class BasicBlock(nn.Module):
 
 
 class Bottleneck(nn.Module):
+
     expansion = 4
 
     def __init__(self,
@@ -109,11 +113,34 @@ class Bottleneck(nn.Module):
         return out
 
 
+@MODELS.register_module()
 class ResNet(nn.Module):
 
+    structures = {
+        18: {
+            'layers': [2, 2, 2, 2],
+            'block': BasicBlock
+        },
+        34: {
+            'layers': [3, 4, 6, 3],
+            'block': BasicBlock
+        },
+        50: {
+            'layers': [3, 4, 6, 3],
+            'block': Bottleneck
+        },
+        101: {
+            'layers': [3, 4, 23, 3],
+            'block': Bottleneck
+        },
+        152: {
+            'layers': [3, 8, 36, 3],
+            'block': Bottleneck
+        },
+    }
+
     def __init__(self,
-                 block,
-                 layers,
+                 depth,
                  return_stages=['layer4'],
                  frozen_stages=-1,
                  norm_eval=True,
@@ -121,6 +148,7 @@ class ResNet(nn.Module):
                  groups=1,
                  width_per_group=64,
                  replace_stride_with_dilation=None,
+                 pretrained=None,
                  norm_layer=None):
         super(ResNet, self).__init__()
         if (norm_layer is None):
@@ -145,6 +173,10 @@ class ResNet(nn.Module):
         self.relu = nn.Relu()
         self.maxpool = nn.Pool(
             kernel_size=3, stride=2, padding=1, op='maximum')
+
+        assert depth in self.structures
+        structure = self.structures[depth]
+        block, layers = structure['block'], structure['layers']
         self.layer1 = self._make_layer(block, 64, layers[0])
         self.layer2 = self._make_layer(
             block,
@@ -240,106 +272,34 @@ class ResNet(nn.Module):
                     m.eval()
 
 
-def _resnet(block, layers, **kwargs):
-    model = ResNet(block, layers, **kwargs)
-    return model
+@MODELS.register_module()
+class ResNetV1d(nn.Module):
 
-
-def Resnet18(pretrained=False, **kwargs):
-    model = _resnet(BasicBlock, [2, 2, 2, 2], **kwargs)
-    if pretrained:
-        model.load('jittorhub://resnet18.pkl')
-    return model
-
-
-resnet18 = Resnet18
-
-
-def Resnet34(pretrained=False, **kwargs):
-    model = _resnet(BasicBlock, [3, 4, 6, 3], **kwargs)
-    if pretrained:
-        model.load('jittorhub://resnet34.pkl')
-    return model
-
-
-resnet34 = Resnet34
-
-
-def Resnet50(pretrained=False, **kwargs):
-    model = _resnet(Bottleneck, [3, 4, 6, 3], **kwargs)
-    if pretrained:
-        model.load('jittorhub://resnet50.pkl')
-    return model
-
-
-def Resnet38(**kwargs):
-    return _resnet(Bottleneck, [2, 3, 5, 2], **kwargs)
-
-
-def Resnet26(**kwargs):
-    return _resnet(Bottleneck, [1, 2, 4, 1], **kwargs)
-
-
-def Resnet101(pretrained=False, **kwargs):
-    """ResNet-101 model architecture.
-
-    Example::
-        model = jittor.models.Resnet101()
-        x = jittor.random([10,3,224,224])
-        y = model(x) # [10, 1000]
-    """
-    model = _resnet(Bottleneck, [3, 4, 23, 3], **kwargs)
-    if pretrained:
-        model.load('jittorhub://resnet101.pkl')
-    return model
-
-
-def Resnet152(pretrained=False, **kwargs):
-    model = _resnet(Bottleneck, [3, 8, 36, 3], **kwargs)
-    if pretrained:
-        model.load('jittorhub://resnet152.pkl')
-    return model
-
-
-def Resnext50_32x4d(pretrained=False, **kwargs):
-    kwargs['groups'] = 32
-    kwargs['width_per_group'] = 4
-    model = _resnet(Bottleneck, [3, 4, 6, 3], **kwargs)
-    if pretrained:
-        model.load('jittorhub://resnext50_32x4d.pkl')
-    return model
-
-
-def Resnext101_32x8d(pretrained=False, **kwargs):
-    kwargs['groups'] = 32
-    kwargs['width_per_group'] = 8
-    model = _resnet(Bottleneck, [3, 4, 23, 3], **kwargs)
-    if pretrained:
-        model.load('jittorhub://resnext101_32x8d.pkl')
-    return model
-
-
-def Wide_resnet50_2(pretrained=False, **kwargs):
-    kwargs['width_per_group'] = (64 * 2)
-    model = _resnet(Bottleneck, [3, 4, 6, 3], **kwargs)
-    if pretrained:
-        model.load('jittorhub://wide_resnet50_2.pkl')
-    return model
-
-
-def Wide_resnet101_2(pretrained=False, **kwargs):
-    kwargs['width_per_group'] = (64 * 2)
-    model = _resnet(Bottleneck, [3, 4, 23, 3], **kwargs)
-    if pretrained:
-        model.load('jittorhub://wide_resnet101_2.pkl')
-    return model
-
-
-class ResNet_v1d(nn.Module):
+    structures = {
+        18: {
+            'layers': [2, 2, 2, 2],
+            'block': BasicBlock
+        },
+        34: {
+            'layers': [3, 4, 6, 3],
+            'block': BasicBlock
+        },
+        50: {
+            'layers': [3, 4, 6, 3],
+            'block': Bottleneck
+        },
+        101: {
+            'layers': [3, 4, 23, 3],
+            'block': Bottleneck
+        },
+        152: {
+            'layers': [3, 8, 36, 3],
+            'block': Bottleneck
+        },
+    }
 
     def __init__(self,
-                 block,
-                 layers,
+                 depth,
                  return_stages=['layer4'],
                  frozen_stages=-1,
                  norm_eval=True,
@@ -348,7 +308,7 @@ class ResNet_v1d(nn.Module):
                  width_per_group=64,
                  replace_stride_with_dilation=None,
                  norm_layer=None):
-        super(ResNet_v1d, self).__init__()
+        super(ResNetV1d, self).__init__()
         if (norm_layer is None):
             norm_layer = nn.BatchNorm
         self.frozen_stages = frozen_stages
@@ -375,6 +335,10 @@ class ResNet_v1d(nn.Module):
             norm_layer(64),
             nn.Relu(),
         )
+
+        assert depth in self.structures
+        structure = self.structures[depth]
+        block, layers = structure['block'], structure['layers']
 
         self.relu = nn.Relu()
         self.maxpool = nn.Pool(
@@ -463,49 +427,10 @@ class ResNet_v1d(nn.Module):
                 param.stop_grad()
 
     def train(self):
-        super(ResNet_v1d, self).train()
+        super(ResNetV1d, self).train()
         self._freeze_stages()
         if self.norm_eval:
             for m in self.modules():
                 # trick: eval have effect on BatchNorm only
                 if isinstance(m, nn.BatchNorm):
                     m.eval()
-
-
-def _resnet_v1d(block, layers, **kwargs):
-    model = ResNet_v1d(block, layers, **kwargs)
-    return model
-
-
-def Resnet18_v1d(pretrained=False, **kwargs):
-    model = _resnet_v1d(BasicBlock, [2, 2, 2, 2], **kwargs)
-    if pretrained:
-        model.load('jittorhub://resnet18.pkl')
-    return model
-
-
-def Resnet34_v1d(pretrained=False, **kwargs):
-    model = _resnet_v1d(BasicBlock, [3, 4, 6, 3], **kwargs)
-    if pretrained:
-        model.load('jittorhub://resnet34.pkl')
-    return model
-
-
-def Resnet50_v1d(pretrained=False, **kwargs):
-    model = _resnet_v1d(Bottleneck, [3, 4, 6, 3], **kwargs)
-    # if pretrained: model.load("jittorhub://resnet50.pkl")
-    return model
-
-
-def Resnet101_v1d(pretrained=False, **kwargs):
-    model = _resnet_v1d(Bottleneck, [3, 4, 23, 3], **kwargs)
-    if pretrained:
-        model.load('jittorhub://resnet101.pkl')
-    return model
-
-
-def Resnet152_v1d(pretrained=False, **kwargs):
-    model = _resnet_v1d(Bottleneck, [3, 8, 36, 3], **kwargs)
-    if pretrained:
-        model.load('jittorhub://resnet152.pkl')
-    return model
