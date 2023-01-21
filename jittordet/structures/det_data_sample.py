@@ -1,5 +1,7 @@
 # Modified from OpenMMLab mmdet/structures/det_data_sample.py
 # Copyright (c) OpenMMLab. All rights reserved.
+from typing import List, Optional
+
 from .base_data_element import BaseDataElement
 from .instance_data import InstanceData
 
@@ -53,3 +55,7 @@ class DetDataSample(BaseDataElement):
     @ignored_instances.deleter
     def ignored_instances(self):
         del self._ignored_instances
+
+
+SampleList = List[DetDataSample]
+OptSampleList = Optional[SampleList]

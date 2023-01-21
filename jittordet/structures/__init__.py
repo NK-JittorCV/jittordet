@@ -1,7 +1,8 @@
 from .base_data_element import BaseDataElement
-from .det_data_sample import DetDataSample
-from .instance_data import InstanceData
+from .det_data_sample import DetDataSample, OptSampleList, SampleList
+from .instance_data import InstanceData, InstanceList
 
 __all__ = [
-    'BaseDataElement', 'InstanceData', 'DetDataSampler', 'DetDataSample'
+    'BaseDataElement', 'InstanceData', 'DetDataSampler', 'DetDataSample',
+    'SampleList', 'OptSampleList', 'InstanceList'
 ]

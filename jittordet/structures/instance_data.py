@@ -173,3 +173,6 @@ class InstanceData(BaseDataElement):
             return len(self.values()[0])
         else:
             return 0
+
+
+InstanceList = List[InstanceData]
