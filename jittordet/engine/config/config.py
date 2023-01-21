@@ -1,6 +1,7 @@
 import os
 import os.path as osp
 from collections.abc import Mapping
+from typing import Optional, Union
 
 from addict import Dict
 
@@ -37,6 +38,10 @@ class ConfigDict(Dict):
             raise e
         else:
             return value
+
+
+ConfigType = Union[ConfigDict, dict]
+OptConfigType = Optional[ConfigType]
 
 
 def load_cfg(filepath):
