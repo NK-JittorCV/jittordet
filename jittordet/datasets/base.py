@@ -5,7 +5,7 @@ import jittor as jt
 import numpy as np
 from jittor.dataset import Dataset
 
-from jittordet.engine import BATCH_SAMPLERS, DATASETS, TRANSFORMS
+from jittordet.engine import BATCH_SAMPLERS, TRANSFORMS
 from jittordet.structures import DetDataSample, InstanceData
 
 
@@ -47,7 +47,6 @@ class Compose:
         return data
 
 
-@DATASETS.register_module()
 class BaseDetDataset(Dataset):
 
     METAINFO = dict()

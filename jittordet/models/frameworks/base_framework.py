@@ -15,7 +15,6 @@ ForwardResults = Union[Dict[str, jt.Var], List[DetDataSample], Tuple[jt.Var],
                        jt.Var]
 
 
-@MODELS.register_module()
 class BaseFrameWork(metaclass=ABCMeta):
     """Base class for detectors.
 
