@@ -1,3 +1,4 @@
+# Modified from OpenMMLab mmdet/models/dense_heads/anchor_head.py
 # Copyright (c) OpenMMLab. All rights reserved.
 from typing import List, Optional, Tuple
 
@@ -7,7 +8,7 @@ import jittor.nn as nn
 from jittordet.engine import MODELS, TASK_UTILS, ConfigType, OptConfigType
 from jittordet.structures import InstanceData, InstanceList, OptInstanceList
 from ..task_utils import PseudoSampler, anchor_inside_flags
-from ..utils import images_to_levels, multi_apply, unmap
+from ..utils import images_to_levels, multi_apply, normal_init, unmap
 from .base_dense_head import BaseDenseHead
 
 
@@ -100,6 +101,11 @@ class AnchorHead(BaseDenseHead):
         reg_dim = self.bbox_coder.encode_size
         self.conv_reg = nn.Conv2d(self.in_channels,
                                   self.num_base_priors * reg_dim, 1)
+
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m.nn.Conv2d):
+                normal_init(m, std=0.01)
 
     def forward_single(self, x: jt.Var) -> Tuple[jt.Var, jt.Var]:
         """Forward feature of a single scale level.
