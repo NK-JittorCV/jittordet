@@ -1,5 +1,7 @@
 # Modified from OpenMMLab. mmdet/models/utils/misc.py
 # Copyright (c) OpenMMLab. All rights reserved.
+from functools import partial
+
 import jittor as jt
 
 from jittordet.structures import SampleList
@@ -119,3 +121,54 @@ def filter_scores_and_topk(scores, score_thr, topk, results=None):
             raise NotImplementedError(f'Only supports dict or list or Tensor, '
                                       f'but get {type(results)}.')
     return scores, labels, keep_idxs, filtered_results
+
+
+def multi_apply(func, *args, **kwargs):
+    """Apply function to a list of arguments.
+
+    Note:
+        This function applies the ``func`` to multiple inputs and
+        map the multiple outputs of the ``func`` into different
+        list. Each list contains the same type of outputs corresponding
+        to different inputs.
+
+    Args:
+        func (Function): A function that will be applied to a list of
+            arguments
+
+    Returns:
+        tuple(list): A tuple containing multiple list, each list contains \
+            a kind of returned results by the function
+    """
+    pfunc = partial(func, **kwargs) if kwargs else func
+    map_results = map(pfunc, *args)
+    return tuple(map(list, zip(*map_results)))
+
+
+def unmap(data, count, inds, fill=0):
+    """Unmap a subset of item (data) back to the original set of items (of size
+    count)"""
+    if data.dim() == 1:
+        ret = jt.full((count, ), fill, dtype=data.dtype)
+        ret[inds.astype(jt.bool)] = data
+    else:
+        new_size = (count, ) + data.size()[1:]
+        ret = jt.full(new_size, fill, dtype=data.dtype)
+        ret[inds.astype(jt.bool), :] = data
+    return ret
+
+
+def images_to_levels(target, num_levels):
+    """Convert targets by image to targets by feature level.
+
+    [target_img0, target_img1] -> [target_level0, target_level1, ...]
+    """
+    target = jt.stack(target, dim=0)
+    level_targets = []
+    start = 0
+    for n in num_levels:
+        end = start + n
+        # level_targets.append(target[:, start:end].squeeze(0))
+        level_targets.append(target[:, start:end])
+        start = end
+    return level_targets

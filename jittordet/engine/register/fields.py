@@ -15,3 +15,4 @@ BATCH_SAMPLERS = Register('batch_sampler')
 # model
 MODELS = Register('models')
 BRICKS = Register('bricks')
+TASK_UTILS = Register('task_utils')

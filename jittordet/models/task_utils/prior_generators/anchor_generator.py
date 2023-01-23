@@ -1,13 +1,11 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-import warnings
-
 import jittor as jt
 import numpy as np
 
-# from .builder import PRIOR_GENERATORS
+from jittordet.engine import TASK_UTILS
 
 
-# @PRIOR_GENERATORS.register_module()
+@TASK_UTILS.register_module()
 class AnchorGenerator:
     """Standard anchor generator for 2D anchor-based detectors.
 
@@ -111,11 +109,6 @@ class AnchorGenerator:
         self.base_anchors = self.gen_base_anchors()
 
     @property
-    def num_base_anchors(self):
-        """list[int]: total number of base anchors in a feature grid"""
-        return self.num_base_priors
-
-    @property
     def num_base_priors(self):
         """list[int]: The number of priors (anchors) at a point
         on the feature grid"""
@@ -211,7 +204,7 @@ class AnchorGenerator:
         else:
             return yy, xx
 
-    def grid_priors(self, featmap_sizes, dtype=jt.float32, device='cuda'):
+    def grid_priors(self, featmap_sizes, dtype=jt.float32):
         """Generate grid anchors in multiple feature levels.
 
         Args:
@@ -232,15 +225,14 @@ class AnchorGenerator:
         multi_level_anchors = []
         for i in range(self.num_levels):
             anchors = self.single_level_grid_priors(
-                featmap_sizes[i], level_idx=i, dtype=dtype, device=device)
+                featmap_sizes[i], level_idx=i, dtype=dtype)
             multi_level_anchors.append(anchors)
         return multi_level_anchors
 
     def single_level_grid_priors(self,
                                  featmap_size,
                                  level_idx,
-                                 dtype=jt.float32,
-                                 device='cuda'):
+                                 dtype=jt.float32):
         """Generate grid anchors of a single level.
 
         Note:
@@ -258,14 +250,14 @@ class AnchorGenerator:
             torch.Tensor: Anchors in the overall feature maps.
         """
 
-        base_anchors = self.base_anchors[level_idx].to(device).to(dtype)
+        base_anchors = self.base_anchors[level_idx].astype(dtype)
         feat_h, feat_w = featmap_size
         stride_w, stride_h = self.strides[level_idx]
         # First create Range with the default dtype, than convert to
         # target `dtype` for onnx exporting.
 
-        shift_x = jt.arange(0, feat_w, device=device).to(dtype) * stride_w
-        shift_y = jt.arange(0, feat_h, device=device).to(dtype) * stride_h
+        shift_x = jt.arange(0, feat_w).to(dtype) * stride_w
+        shift_y = jt.arange(0, feat_h).to(dtype) * stride_h
 
         shift_xx, shift_yy = self._meshgrid(shift_x, shift_y)
         shifts = jt.stack([shift_xx, shift_yy, shift_xx, shift_yy], dim=-1)
@@ -283,8 +275,7 @@ class AnchorGenerator:
                       prior_idxs,
                       featmap_size,
                       level_idx,
-                      dtype=jt.float32,
-                      device='cuda'):
+                      dtype=jt.float32):
         """Generate sparse anchors according to the ``prior_idxs``.
 
         Args:
@@ -309,86 +300,12 @@ class AnchorGenerator:
              num_base_anchors) % width * self.strides[level_idx][0]
         y = (prior_idxs // width //
              num_base_anchors) % height * self.strides[level_idx][1]
-        priors = jt.stack([x, y, x, y], 1).to(dtype).to(device) + \
-            self.base_anchors[level_idx][base_anchor_id, :].to(device)
+        priors = jt.stack([x, y, x, y], 1).astype(dtype) + \
+            self.base_anchors[level_idx][base_anchor_id, :]
 
         return priors
 
-    def grid_anchors(self, featmap_sizes, device='cuda'):
-        """Generate grid anchors in multiple feature levels.
-
-        Args:
-            featmap_sizes (list[tuple]): List of feature map sizes in
-                multiple feature levels.
-            device (str): Device where the anchors will be put on.
-
-        Return:
-            list[torch.Tensor]: Anchors in multiple feature levels. \
-                The sizes of each tensor should be [N, 4], where \
-                N = width * height * num_base_anchors, width and height \
-                are the sizes of the corresponding feature level, \
-                num_base_anchors is the number of anchors for that level.
-        """
-        warnings.warn('``grid_anchors`` would be deprecated soon. '
-                      'Please use ``grid_priors`` ')
-
-        assert self.num_levels == len(featmap_sizes)
-        multi_level_anchors = []
-        for i in range(self.num_levels):
-            anchors = self.single_level_grid_anchors(
-                self.base_anchors[i].to(device),
-                featmap_sizes[i],
-                self.strides[i],
-                device=device)
-            multi_level_anchors.append(anchors)
-        return multi_level_anchors
-
-    def single_level_grid_anchors(self,
-                                  base_anchors,
-                                  featmap_size,
-                                  stride=(16, 16),
-                                  device='cuda'):
-        """Generate grid anchors of a single level.
-
-        Note:
-            This function is usually called by method ``self.grid_anchors``.
-
-        Args:
-            base_anchors (torch.Tensor): The base anchors of a feature grid.
-            featmap_size (tuple[int]): Size of the feature maps.
-            stride (tuple[int], optional): Stride of the feature map in order
-                (w, h). Defaults to (16, 16).
-            device (str, optional): Device the tensor will be put on.
-                Defaults to 'cuda'.
-
-        Returns:
-            torch.Tensor: Anchors in the overall feature maps.
-        """
-
-        warnings.warn(
-            '``single_level_grid_anchors`` would be deprecated soon. '
-            'Please use ``single_level_grid_priors`` ')
-
-        # keep featmap_size as Tensor instead of int, so that we
-        # can convert to ONNX correctly
-        feat_h, feat_w = featmap_size
-        shift_x = jt.arange(0, feat_w, device=device) * stride[0]
-        shift_y = jt.arange(0, feat_h, device=device) * stride[1]
-
-        shift_xx, shift_yy = self._meshgrid(shift_x, shift_y)
-        shifts = jt.stack([shift_xx, shift_yy, shift_xx, shift_yy], dim=-1)
-        shifts = shifts.type_as(base_anchors)
-        # first feat_w elements correspond to the first row of shifts
-        # add A anchors (1, A, 4) to K shifts (K, 1, 4) to get
-        # shifted anchors (K, A, 4), reshape to (K*A, 4)
-
-        all_anchors = base_anchors[None, :, :] + shifts[:, None, :]
-        all_anchors = all_anchors.view(-1, 4)
-        # first A rows correspond to A anchors of (0, 0) in feature map,
-        # then (0, 1), (0, 2), ...
-        return all_anchors
-
-    def valid_flags(self, featmap_sizes, pad_shape, device='cuda'):
+    def valid_flags(self, featmap_sizes, pad_shape):
         """Generate valid flags of anchors in multiple feature levels.
 
         Args:
@@ -410,16 +327,12 @@ class AnchorGenerator:
             valid_feat_w = min(int(np.ceil(w / anchor_stride[0])), feat_w)
             flags = self.single_level_valid_flags((feat_h, feat_w),
                                                   (valid_feat_h, valid_feat_w),
-                                                  self.num_base_anchors[i],
-                                                  device=device)
+                                                  self.num_base_anchors[i])
             multi_level_flags.append(flags)
         return multi_level_flags
 
-    def single_level_valid_flags(self,
-                                 featmap_size,
-                                 valid_size,
-                                 num_base_anchors,
-                                 device='cuda'):
+    def single_level_valid_flags(self, featmap_size, valid_size,
+                                 num_base_anchors):
         """Generate the valid flags of anchor in a single feature map.
 
         Args:
@@ -437,8 +350,8 @@ class AnchorGenerator:
         feat_h, feat_w = featmap_size
         valid_h, valid_w = valid_size
         assert valid_h <= feat_h and valid_w <= feat_w
-        valid_x = jt.zeros(feat_w, dtype=jt.bool, device=device)
-        valid_y = jt.zeros(feat_h, dtype=jt.bool, device=device)
+        valid_x = jt.zeros(feat_w, dtype=jt.bool)
+        valid_y = jt.zeros(feat_h, dtype=jt.bool)
         valid_x[:valid_w] = 1
         valid_y[:valid_h] = 1
         valid_xx, valid_yy = self._meshgrid(valid_x, valid_y)
@@ -464,15 +377,3 @@ class AnchorGenerator:
         repr_str += f'{indent_str}centers={self.centers},\n'
         repr_str += f'{indent_str}center_offset={self.center_offset})'
         return repr_str
-
-
-ratios = [1.0]
-octave_base_scale = 8
-scales_per_octave = 1
-scales = [1, 2, 4, 8, 16]
-strides = [8, 16, 32, 64, 128]
-AnchorGenerator(
-    strides=strides,
-    ratios=ratios,
-    scales=scales,
-    octave_base_scale=octave_base_scale)

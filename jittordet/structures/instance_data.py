@@ -2,7 +2,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import itertools
 from collections.abc import Sized
-from typing import List
+from typing import List, Optional
 
 import jittor as jt
 import numpy as np
@@ -176,3 +176,4 @@ class InstanceData(BaseDataElement):
 
 
 InstanceList = List[InstanceData]
+OptInstanceList = Optional[InstanceList]
