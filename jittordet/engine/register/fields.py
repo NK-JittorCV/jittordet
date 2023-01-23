@@ -12,4 +12,6 @@ DATASETS = Register('datasets')
 TRANSFORMS = Register('transforms')
 BATCH_SAMPLERS = Register('batch_sampler')
 
+# model
 MODELS = Register('models')
+BRICKS = Register('bricks')

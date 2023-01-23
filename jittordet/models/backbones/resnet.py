@@ -201,7 +201,12 @@ class ResNet(nn.Module):
         if num_classes is not None:
             self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
             self.fc = nn.Linear((512 * block.expansion), num_classes)
+        self.pretrained = pretrained
         self._freeze_stages()
+
+    def init_weight(self):
+        if self.pretrained is not None:
+            self.load(self.pretrained)
 
     def _make_layer(self, block, planes, blocks, stride=1, dilate=False):
         norm_layer = self._norm_layer
@@ -307,7 +312,8 @@ class ResNetV1d(nn.Module):
                  groups=1,
                  width_per_group=64,
                  replace_stride_with_dilation=None,
-                 norm_layer=None):
+                 norm_layer=None,
+                 pretrained=None):
         super(ResNetV1d, self).__init__()
         if (norm_layer is None):
             norm_layer = nn.BatchNorm
@@ -367,6 +373,13 @@ class ResNetV1d(nn.Module):
         if num_classes is not None:
             self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
             self.fc = nn.Linear((512 * block.expansion), num_classes)
+
+        self.pretrained = pretrained
+        self._freeze_stages()
+
+    def init_weight(self):
+        if self.pretrained is not None:
+            self.load(self.pretrained)
 
     def _make_layer(self, block, planes, blocks, stride=1, dilate=False):
         norm_layer = self._norm_layer
