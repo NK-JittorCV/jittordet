@@ -1,8 +1,13 @@
 from .initialize import (bias_init_with_prob, caffe2_xavier_init,
                          constant_init, kaiming_init, normal_init,
                          trunc_normal_init, uniform_init, xavier_init)
+from .misc import (filter_scores_and_topk, select_single_mlvl,
+                   unpack_gt_instances)
+from .nms import batched_nms
 
 __all__ = [
     'normal_init', 'constant_init', 'xavier_init', 'trunc_normal_init',
-    'uniform_init', 'kaiming_init', 'caffe2_xavier_init', 'bias_init_with_prob'
+    'uniform_init', 'kaiming_init', 'caffe2_xavier_init',
+    'bias_init_with_prob', 'unpack_gt_instances', 'select_single_mlvl',
+    'filter_scores_and_topk', 'batched_nms'
 ]

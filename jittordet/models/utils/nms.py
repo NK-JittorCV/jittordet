@@ -1,0 +1,91 @@
+# Modified from OpenMMLab mmcv/ops/nms.py
+from typing import Dict, Optional, Tuple
+
+import jittor as jt
+
+
+def batched_nms(boxes: jt.Var,
+                scores: jt.Var,
+                idxs: jt.Var,
+                nms_cfg: Optional[Dict],
+                class_agnostic: bool = False) -> Tuple[jt.Var, jt.Var]:
+    r"""Performs non-maximum suppression in a batched fashion.
+
+    Modified from `torchvision/ops/boxes.py#L39
+    <https://github.com/pytorch/vision/blob/
+    505cd6957711af790211896d32b40291bea1bc21/torchvision/ops/boxes.py#L39>`_.
+    In order to perform NMS independently per class, we add an offset to all
+    the boxes. The offset is dependent only on the class idx, and is large
+    enough so that boxes from different classes do not overlap.
+
+    Note:
+        In v1.4.1 and later, ``batched_nms`` supports skipping the NMS and
+        returns sorted raw results when `nms_cfg` is None.
+
+    Args:
+        boxes (torch.Tensor): boxes in shape (N, 4) or (N, 5).
+        scores (torch.Tensor): scores in shape (N, ).
+        idxs (torch.Tensor): each index value correspond to a bbox cluster,
+            and NMS will not be applied between elements of different idxs,
+            shape (N, ).
+        nms_cfg (dict | optional): Supports skipping the nms when `nms_cfg`
+            is None, otherwise it should specify nms type and other
+            parameters like `iou_thr`. Possible keys includes the following.
+
+            - iou_threshold (float): IoU threshold used for NMS.
+            - split_thr (float): threshold number of boxes. In some cases the
+              number of boxes is large (e.g., 200k). To avoid OOM during
+              training, the users could set `split_thr` to a small value.
+              If the number of boxes is greater than the threshold, it will
+              perform NMS on each group of boxes separately and sequentially.
+              Defaults to 10000.
+        class_agnostic (bool): if true, nms is class agnostic,
+            i.e. IoU thresholding happens over all boxes,
+            regardless of the predicted class. Defaults to False.
+
+    Returns:
+        tuple: kept dets and indice.
+
+        - boxes (Tensor): Bboxes with score after nms, has shape
+          (num_bboxes, 5). last dimension 5 arrange as
+          (x1, y1, x2, y2, score)
+        - keep (Tensor): The indices of remaining boxes in input
+          boxes.
+    """
+    # skip nms when nms_cfg is None
+    if nms_cfg is None:
+        scores, inds = scores.sort(descending=True)
+        boxes = boxes[inds]
+        return boxes, scores, inds
+
+    nms_cfg_ = nms_cfg.copy()
+    class_agnostic = nms_cfg_.pop('class_agnostic', class_agnostic)
+    if class_agnostic:
+        boxes_for_nms = boxes
+    else:
+        # When using rotated boxes, only apply offsets on center.
+        if boxes.size(-1) == 5:
+            # Strictly, the maximum coordinates of the rotating box
+            # (x,y,w,h,a) should be calculated by polygon coordinates.
+            # But the conversion from rotated box to polygon will
+            # slow down the speed.
+            # So we use max(x,y) + max(w,h) as max coordinate
+            # which is larger than polygon max coordinate
+            # max(x1, y1, x2, y2,x3, y3, x4, y4)
+            max_coordinate = boxes[..., :2].max() + boxes[..., 2:4].max()
+            offsets = idxs.astype(boxes.dtype) * (max_coordinate + 1)
+            boxes_ctr_for_nms = boxes[..., :2] + offsets[:, None]
+            boxes_for_nms = jt.concat([boxes_ctr_for_nms, boxes[..., 2:5]],
+                                      dim=-1)
+        else:
+            max_coordinate = boxes.max()
+            offsets = idxs.astype(boxes.dtype) * (max_coordinate + 1)
+            boxes_for_nms = boxes + offsets[:, None]
+
+    # only support jt.nms for now
+    nms_cfg_.pop('type', 'nms')
+    dets = jt.concat([boxes_for_nms, scores[:, None]], dim=1)
+    keep = jt.nms(dets, **nms_cfg_)
+    boxes = boxes[keep]
+    scores = scores[keep]
+    return boxes, scores, keep

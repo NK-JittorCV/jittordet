@@ -204,9 +204,9 @@ class ResNet(nn.Module):
         self.pretrained = pretrained
         self._freeze_stages()
 
-    def init_weight(self):
-        if self.pretrained is not None:
-            self.load(self.pretrained)
+    def init_weights(self):
+        assert self.pretrained is not None
+        self.load(self.pretrained)
 
     def _make_layer(self, block, planes, blocks, stride=1, dilate=False):
         norm_layer = self._norm_layer
@@ -377,9 +377,9 @@ class ResNetV1d(nn.Module):
         self.pretrained = pretrained
         self._freeze_stages()
 
-    def init_weight(self):
-        if self.pretrained is not None:
-            self.load(self.pretrained)
+    def init_weights(self):
+        assert self.pretrained is not None
+        self.load(self.pretrained)
 
     def _make_layer(self, block, planes, blocks, stride=1, dilate=False):
         norm_layer = self._norm_layer
