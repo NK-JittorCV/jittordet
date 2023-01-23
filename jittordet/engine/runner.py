@@ -137,9 +137,15 @@ class Runner:
         return self._experiment_name
 
     def init_model_weights(self):
-        for module in self.model.children():
-            if hasattr(module, 'init_weights'):
-                module.init_weights()
+
+        def dfs_run_init_weights(model):
+            for m in model.modules():
+                dfs_run_init_weights(m)
+
+            if hasattr(model, 'init_weights'):
+                model.init_weights()
+
+        dfs_run_init_weights(self.model)
 
     def build_model(self, model):
         if isinstance(model, nn.Module):
