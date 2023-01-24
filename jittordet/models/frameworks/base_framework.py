@@ -15,7 +15,7 @@ ForwardResults = Union[Dict[str, jt.Var], List[DetDataSample], Tuple[jt.Var],
                        jt.Var]
 
 
-class BaseFrameWork(metaclass=ABCMeta):
+class BaseFramework(metaclass=ABCMeta):
     """Base class for detectors.
 
     Args:

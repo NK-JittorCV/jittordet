@@ -8,11 +8,11 @@ import jittor as jt
 
 from jittordet.engine import MODELS, ConfigType, OptConfigType
 from jittordet.structures import SampleList
-from .base_framework import BaseFrameWork
+from .base_framework import BaseFramework
 
 
 @MODELS.register_module()
-class MultiStageFrameWork(BaseFrameWork):
+class MultiStageFramework(BaseFramework):
     """Base class for two-stage detectors.
 
     Two-stage detectors typically consisting of a region proposal network and a

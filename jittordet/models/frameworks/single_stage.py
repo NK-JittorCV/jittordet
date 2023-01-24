@@ -6,11 +6,11 @@ import jittor as jt
 
 from jittordet.engine import MODELS, ConfigType, OptConfigType
 from jittordet.structures import OptSampleList, SampleList
-from .base_framework import BaseFrameWork
+from .base_framework import BaseFramework
 
 
 @MODELS.register_module()
-class SingleStageFrameWork(BaseFrameWork):
+class SingleStageFramework(BaseFramework):
     """Base class for single-stage detectors.
 
     Single-stage detectors directly and densely predict bounding boxes on the
