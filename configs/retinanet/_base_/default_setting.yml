@@ -1,0 +1,9 @@
+hooks:
+  - type: LoggerHook
+    interval: 50
+    interval_exp_name: 1000
+  - type: CheckpointHook
+    interval: 1
+
+disable_cuda: false
+seed: null

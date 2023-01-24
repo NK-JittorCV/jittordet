@@ -1,0 +1,66 @@
+model:
+  type: OneStageFrameWork
+  preprocessor:
+    type: Preprocessor
+    mean: [123.675, 116.28, 103.53]
+    std: [58.395, 57.12, 57.375]
+    bgr_to_rgb: true
+    pad_size_divisor: 32
+  backbone:
+    type: ResNet
+    depth: 50
+    frozen_stages: 1
+    norm_eval: true
+    return_stages: ['layer1', 'layer2', 'layer3', 'layer4']
+    pretrained: 'jittorhub://resnet50.pkl'
+  neck:
+    type: FPN
+    in_channels: [156, 512, 1024, 2048]
+    out_channels: 256
+    start_level: 1
+    add_extra_convs: on_input
+    num_outs: 5
+  bbox_head:
+    type: RetinaHead
+    num_classes: 80
+    in_channels: 256
+    stacked_convs: 4
+    feat_channels: 256
+    anchor_generator:
+      type: 'AnchorGenerator'
+      octave_base_scale: 4
+      scales_per_octave: 3
+      ratios: [0.5, 1.0, 2.0]
+      strides: [8, 16, 32, 64, 128]
+    bbox_coder:
+      type: DeltaXYWHBBoxCoder
+      target_means: [.0, .0, .0, .0]
+      target_stds: [1.0, 1.0, 1.0, 1.0]
+    loss_cls:
+      type: FocalLoss
+      use_sigmoid: true
+      gamma: 2.0
+      alpha: 0.25
+      loss_weight: 1.0
+    loss_bbox:
+      type: L1Loss
+      loss_weight: 1.0
+  tran_cfg:
+    assigner:
+      type: 'MaxIoUAssigner'
+      pos_iou_thr: 0.5
+      neg_iou_thr: 0.4
+      min_pos_iou: 0
+      ignore_iof_thr: -1
+    sampler:
+      type: PseudoSampler
+    allowed_border: -1
+    pos_weight: -1
+  test_cfg:
+    num_pre: 1000
+    min_bbox_size: 0,
+    score_thr: 0.05
+    nms:
+      type: nms
+      iou_threshold: 0.5
+    max_per_img: 100
