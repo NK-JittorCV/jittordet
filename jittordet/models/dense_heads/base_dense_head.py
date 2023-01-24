@@ -317,8 +317,7 @@ class BaseDenseHead(nn.Module, metaclass=ABCMeta):
 
             assert cls_score.size()[-2:] == bbox_pred.size()[-2:]
 
-            dim = self.bbox_coder.encode_size
-            bbox_pred = bbox_pred.permute(1, 2, 0).reshape(-1, dim)
+            bbox_pred = bbox_pred.permute(1, 2, 0).reshape(-1, 4)
             if with_score_factors:
                 score_factor = score_factor.permute(1, 2,
                                                     0).reshape(-1).sigmoid()
@@ -412,8 +411,9 @@ class BaseDenseHead(nn.Module, metaclass=ABCMeta):
         """
         if rescale:
             assert img_meta.get('scale_factor') is not None
-            results.bboxes /= results.bboxes.new_tensor(
-                img_meta['scale_factor']).repeat((1, 2))
+            results.bboxes /= jt.array(
+                img_meta['scale_factor'], dtype=results.bboxes.dtype).repeat(
+                    (1, 2))
 
         if hasattr(results, 'score_factors'):
             # TODO： Add sqrt operation in order to be consistent with

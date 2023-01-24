@@ -57,7 +57,7 @@ class RandomSampler(BaseSampler):
 
         is_tensor = isinstance(gallery, jt.Var)
         if not is_tensor:
-            gallery = jt.array(gallery, dtype=jt.long)
+            gallery = jt.array(gallery, dtype=jt.int64)
         # This is a temporary fix. We can revert the following code
         # when PyTorch fixes the abnormal return of torch.randperm.
         # See: https://github.com/open-mmlab/mmdetection/pull/5014

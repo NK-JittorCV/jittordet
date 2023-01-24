@@ -155,7 +155,7 @@ class IoULoss(nn.Module):
         self.reduction = reduction
         self.loss_weight = loss_weight
 
-    def forward(self,
+    def execute(self,
                 pred,
                 target,
                 weight=None,
@@ -210,7 +210,7 @@ class GIoULoss(nn.Module):
         self.reduction = reduction
         self.loss_weight = loss_weight
 
-    def forward(self,
+    def execute(self,
                 pred,
                 target,
                 weight=None,
@@ -250,7 +250,7 @@ class DIoULoss(nn.Module):
         self.reduction = reduction
         self.loss_weight = loss_weight
 
-    def forward(self,
+    def execute(self,
                 pred,
                 target,
                 weight=None,

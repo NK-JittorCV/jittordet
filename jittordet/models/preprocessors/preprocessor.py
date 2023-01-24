@@ -258,7 +258,7 @@ class Preprocessor(nn.Module):
                 batch_pad_shape.append((pad_h, pad_w))
         # Process data with `default_collate`.
         elif isinstance(_batch_inputs, jt.Var):
-            assert _batch_inputs.dim() == 4, (
+            assert _batch_inputs.ndim == 4, (
                 'The input of `ImgDataPreprocessor` should be a NCHW tensor '
                 'or a list of tensor, but got a tensor with shape: '
                 f'{_batch_inputs.shape}')

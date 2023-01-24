@@ -99,7 +99,7 @@ class RetinaHead(AnchorHead):
         bias = bias_init_with_prob(0.01)
         normal_init(self.retina_cls, std=0.01, bias=bias)
 
-    def forward_single(self, x):
+    def execute_single(self, x):
         """Forward feature of a single scale level.
 
         Args:

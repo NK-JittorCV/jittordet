@@ -136,10 +136,9 @@ def bbox2delta(proposals, gt, means=(0., 0., 0., 0.), stds=(1., 1., 1., 1.)):
     dh = jt.log(gh / ph)
     deltas = jt.stack([dx, dy, dw, dh], dim=-1)
 
-    means = deltas.new_tensor(means).unsqueeze(0)
-    stds = deltas.new_tensor(stds).unsqueeze(0)
-    deltas = deltas.sub_(means).div_(stds)
-
+    means = jt.array(means, dtype=deltas.dtype).unsqueeze(0)
+    stds = jt.array(stds, dtype=deltas.dtype).unsqueeze(0)
+    deltas = (deltas - means) / stds
     return deltas
 
 
@@ -209,8 +208,8 @@ def delta2bbox(rois,
 
     deltas = deltas.reshape(-1, 4)
 
-    means = deltas.new_tensor(means).view(1, -1)
-    stds = deltas.new_tensor(stds).view(1, -1)
+    means = jt.array(means, dtype=deltas.dtype).view(1, -1)
+    stds = jt.array(stds, dtype=deltas.dtype).view(1, -1)
     denorm_deltas = deltas * stds + means
 
     dxy = denorm_deltas[:, :2]

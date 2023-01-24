@@ -294,7 +294,7 @@ class AnchorGenerator:
         """
 
         height, width = featmap_size
-        num_base_anchors = self.num_base_anchors[level_idx]
+        num_base_anchors = self.num_base_priors[level_idx]
         base_anchor_id = prior_idxs % num_base_anchors
         x = (prior_idxs //
              num_base_anchors) % width * self.strides[level_idx][0]
@@ -327,7 +327,7 @@ class AnchorGenerator:
             valid_feat_w = min(int(np.ceil(w / anchor_stride[0])), feat_w)
             flags = self.single_level_valid_flags((feat_h, feat_w),
                                                   (valid_feat_h, valid_feat_w),
-                                                  self.num_base_anchors[i])
+                                                  self.num_base_priors[i])
             multi_level_flags.append(flags)
         return multi_level_flags
 

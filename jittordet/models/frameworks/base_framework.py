@@ -93,7 +93,7 @@ class BaseFramework(nn.Module, metaclass=ABCMeta):
         elif phase == 'predict':
             return self.predict(inputs, data_samples)
         elif phase == 'tensor':
-            return self._forward(inputs, data_samples)
+            return self._execute(inputs, data_samples)
         else:
             raise RuntimeError(f'Invalid mode "{phase}". '
                                'Only supports loss, predict and tensor mode')
@@ -146,7 +146,7 @@ class BaseFramework(nn.Module, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def _forward(self,
+    def _execute(self,
                  batch_inputs: jt.Var,
                  batch_data_samples: OptSampleList = None):
         """Network forward process.

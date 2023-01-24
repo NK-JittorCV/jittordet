@@ -157,12 +157,12 @@ class MaxIoUAssigner(BaseAssigner):
         num_gts, num_bboxes = overlaps.size(0), overlaps.size(1)
 
         # 1. assign -1 by default
-        assigned_gt_inds = jt.full((num_bboxes, ), -1, dtype=jt.long)
+        assigned_gt_inds = jt.full((num_bboxes, ), -1, dtype=jt.int64)
 
         if num_gts == 0 or num_bboxes == 0:
             # No ground truth or boxes, return empty assignment
             max_overlaps = jt.zeros((num_bboxes, ), dtype=overlaps.dtype)
-            assigned_labels = jt.full((num_bboxes, ), -1, dtype=jt.long)
+            assigned_labels = jt.full((num_bboxes, ), -1, dtype=jt.int64)
             if num_gts == 0:
                 # No truth, assign everything to background
                 assigned_gt_inds[:] = 0
@@ -174,12 +174,10 @@ class MaxIoUAssigner(BaseAssigner):
 
         # for each anchor, which gt best overlaps with it
         # for each anchor, the max iou of all gts
-        max_overlaps = jt.max(overlaps, dim=0)
-        argmax_overlaps = jt.argmax(overlaps, dim=0)
+        argmax_overlaps, max_overlaps = jt.argmax(overlaps, dim=0)
         # for each gt, which anchor best overlaps with it
         # for each gt, the max iou of all proposals
-        gt_max_overlaps = jt.max(overlaps, dim=1)
-        gt_argmax_overlaps = jt.argmax(overlaps, dim=1)
+        gt_argmax_overlaps, gt_max_overlaps = jt.argmax(overlaps, dim=1)
 
         # 2. assign negative: below
         # the negative inds are set to be 0
@@ -212,8 +210,10 @@ class MaxIoUAssigner(BaseAssigner):
                     else:
                         assigned_gt_inds[gt_argmax_overlaps[i]] = i + 1
 
-        assigned_labels = assigned_gt_inds.new_full((num_bboxes, ), -1)
-        pos_inds = jt.nonzero(assigned_gt_inds > 0).squeeze()
+        assigned_labels = jt.full((num_bboxes, ),
+                                  -1,
+                                  dtype=assigned_gt_inds.dtype)
+        pos_inds = jt.nonzero(assigned_gt_inds > 0).squeeze(dim=1)
         if pos_inds.numel() > 0:
             assigned_labels[pos_inds] = gt_labels[assigned_gt_inds[pos_inds] -
                                                   1]

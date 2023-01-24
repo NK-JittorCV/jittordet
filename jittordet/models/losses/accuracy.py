@@ -71,7 +71,7 @@ class Accuracy(nn.Module):
         self.topk = topk
         self.thresh = thresh
 
-    def forward(self, pred, target):
+    def execute(self, pred, target):
         """Forward function to calculate accuracy.
 
         Args:

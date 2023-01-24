@@ -106,7 +106,7 @@ class AnchorHead(BaseDenseHead):
             if isinstance(m.nn.Conv2d):
                 normal_init(m, std=0.01)
 
-    def forward_single(self, x: jt.Var) -> Tuple[jt.Var, jt.Var]:
+    def execute_single(self, x: jt.Var) -> Tuple[jt.Var, jt.Var]:
         """Forward feature of a single scale level.
 
         Args:
@@ -123,7 +123,7 @@ class AnchorHead(BaseDenseHead):
         bbox_pred = self.conv_reg(x)
         return cls_score, bbox_pred
 
-    def forward(self, x: Tuple[jt.Var]) -> Tuple[List[jt.Var]]:
+    def execute(self, x: Tuple[jt.Var]) -> Tuple[List[jt.Var]]:
         """Forward features from the upstream network.
 
         Args:
@@ -140,7 +140,7 @@ class AnchorHead(BaseDenseHead):
                     scale levels, each is a 4D-tensor, the channels number \
                     is num_base_priors * 4.
         """
-        return multi_apply(self.forward_single, x)
+        return multi_apply(self.execute_single, x)
 
     def get_priors(self,
                    featmap_sizes: List[tuple],
@@ -236,15 +236,13 @@ class AnchorHead(BaseDenseHead):
                                               gt_instances)
 
         num_valid_anchors = anchors.shape[0]
-        target_dim = gt_instances.bboxes.size(-1) if self.reg_decoded_bbox \
-            else self.bbox_coder.encode_size
-        bbox_targets = anchors.new_zeros(num_valid_anchors, target_dim)
-        bbox_weights = anchors.new_zeros(num_valid_anchors, target_dim)
+        bbox_targets = jt.zeros(num_valid_anchors, 4, dtype=anchors.dtype)
+        bbox_weights = jt.zeros(num_valid_anchors, 4, dtype=anchors.dtype)
 
         # TODO: Considering saving memory, is it necessary to be long?
         labels = jt.full((num_valid_anchors, ),
                          self.num_classes,
-                         dtype=jt.long)
+                         dtype=jt.int64)
         label_weights = jt.zeros(num_valid_anchors, dtype=jt.float)
 
         pos_inds = sampling_result.pos_inds
@@ -368,9 +366,6 @@ class AnchorHead(BaseDenseHead):
         # `avg_factor` is usually equal to the number of positive priors.
         avg_factor = sum(
             [results.avg_factor for results in sampling_results_list])
-        # update `_raw_positive_infos`, which will be used when calling
-        # `get_positive_infos`.
-        self._raw_positive_infos.update(sampling_results=sampling_results_list)
         # split targets to a list w.r.t. multiple levels
         labels_list = images_to_levels(all_labels, num_level_anchors)
         label_weights_list = images_to_levels(all_label_weights,
@@ -426,9 +421,7 @@ class AnchorHead(BaseDenseHead):
         target_dim = bbox_targets.size(-1)
         bbox_targets = bbox_targets.reshape(-1, target_dim)
         bbox_weights = bbox_weights.reshape(-1, target_dim)
-        bbox_pred = bbox_pred.permute(0, 2, 3,
-                                      1).reshape(-1,
-                                                 self.bbox_coder.encode_size)
+        bbox_pred = bbox_pred.permute(0, 2, 3, 1).reshape(-1, 4)
         if self.reg_decoded_bbox:
             # When the regression loss (e.g. `IouLoss`, `GIouLoss`)
             # is applied directly on the decoded bounding boxes, it
@@ -470,10 +463,8 @@ class AnchorHead(BaseDenseHead):
         featmap_sizes = [featmap.size()[-2:] for featmap in cls_scores]
         assert len(featmap_sizes) == self.prior_generator.num_levels
 
-        device = cls_scores[0].device
-
-        anchor_list, valid_flag_list = self.get_priors(
-            featmap_sizes, batch_img_metas, device=device)
+        anchor_list, valid_flag_list = self.get_priors(featmap_sizes,
+                                                       batch_img_metas)
         cls_reg_targets = self.get_targets(
             anchor_list,
             valid_flag_list,

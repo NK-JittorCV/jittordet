@@ -87,7 +87,7 @@ class SingleStageFramework(BaseFramework):
             batch_data_samples, results_list)
         return batch_data_samples
 
-    def _forward(
+    def _execute(
             self,
             batch_inputs: jt.Var,
             batch_data_samples: OptSampleList = None) -> Tuple[List[jt.Var]]:

@@ -71,8 +71,8 @@ class InstanceData(BaseDataElement):
 
         new_data = self.__class__(metainfo=self.metainfo)
         if isinstance(item, jt.Var):
-            assert item.ndim() == 1, 'Only support to get the' \
-                                    ' values along the first dimension.'
+            assert item.ndim == 1, 'Only support to get the' \
+                                   ' values along the first dimension.'
 
             for k, v in self.items():
                 if isinstance(v, jt.Var):

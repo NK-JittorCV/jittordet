@@ -1,9 +1,37 @@
 # Modified from OpenMMLab. mmdet/models/losses/focal_loss.py
 # Copyright (c) OpenMMLab. All rights reserved.
+import jittor as jt
 import jittor.nn as nn
 
 from jittordet.engine import MODELS
 from .utils import weight_reduce_loss
+
+
+def binary_cross_entropy_with_logits(output,
+                                     target,
+                                     weight=None,
+                                     pos_weight=None,
+                                     reduction='mean'):
+    max_val = jt.clamp(-output, min_v=0)
+    if pos_weight is not None:
+        log_weight = (pos_weight - 1) * target + 1
+        loss = (1 - target) * output + (
+            log_weight * (((-max_val).exp() +
+                           (-output - max_val).exp()).log() + max_val))
+    else:
+        loss = (1 - target) * output + max_val + (
+            (-max_val).exp() + (-output - max_val).exp()).log()
+    if weight is not None:
+        loss *= weight
+
+    if reduction == 'mean':
+        return loss.mean()
+    elif reduction == 'sum':
+        return loss.sum()
+    elif reduction == 'none':
+        return loss
+    else:
+        raise RuntimeError(f'Got invalid reduction, {reduction}')
 
 
 # This method is only for debugging
@@ -31,11 +59,11 @@ def py_sigmoid_focal_loss(pred,
             the loss. Defaults to None.
     """
     pred_sigmoid = pred.sigmoid()
-    target = target.astype(pred)
+    target = target.astype(pred.dtype)
     pt = (1 - pred_sigmoid) * target + pred_sigmoid * (1 - target)
     focal_weight = (alpha * target + (1 - alpha) *
                     (1 - target)) * pt.pow(gamma)
-    loss = nn.binary_cross_entropy_with_logits(
+    loss = binary_cross_entropy_with_logits(
         pred, target, reduction='none') * focal_weight
     if weight is not None:
         if weight.shape != loss.shape:
@@ -90,7 +118,7 @@ class FocalLoss(nn.Module):
         self.reduction = reduction
         self.loss_weight = loss_weight
 
-    def forward(self,
+    def execute(self,
                 pred,
                 target,
                 weight=None,

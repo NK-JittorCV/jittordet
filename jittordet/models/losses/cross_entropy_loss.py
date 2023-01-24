@@ -117,7 +117,7 @@ def binary_cross_entropy(pred,
     # The default value of ignore_index is the same as F.cross_entropy
     ignore_index = -100 if ignore_index is None else ignore_index
 
-    if pred.dim() != label.dim():
+    if pred.ndim != label.ndim:
         label, weight, valid_mask = _expand_onehot_labels(
             label, weight, pred.size(-1), ignore_index)
     else:
@@ -192,7 +192,7 @@ def mask_cross_entropy(pred,
     # TODO: handle these two reserved arguments
     assert reduction == 'mean' and avg_factor is None
     num_rois = pred.size()[0]
-    inds = jt.arange(0, num_rois, dtype=jt.long)
+    inds = jt.arange(0, num_rois, dtype=jt.int64)
     pred_slice = pred[inds, label].squeeze(1)
     return nn.binary_cross_entropy_with_logits(
         pred_slice, target, weight=class_weight, reduction='mean')[None]
@@ -255,7 +255,7 @@ class CrossEntropyLoss(nn.Module):
         s = f'avg_non_ignore={self.avg_non_ignore}'
         return s
 
-    def forward(self,
+    def execute(self,
                 cls_score,
                 label,
                 weight=None,
@@ -285,8 +285,7 @@ class CrossEntropyLoss(nn.Module):
             ignore_index = self.ignore_index
 
         if self.class_weight is not None:
-            class_weight = cls_score.new_tensor(
-                self.class_weight, device=cls_score.device)
+            class_weight = jt.array(self.class_weight, dtype=cls_score.dtype)
         else:
             class_weight = None
         loss_cls = self.loss_weight * self.cls_criterion(

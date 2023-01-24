@@ -88,12 +88,17 @@ class LoggerHook(BaseHook):
         log_str_list.append(log_str)
 
         # iter time and etc time
-        iter_time = self.get_log_hitory('train', 'time', 500, reduction='mean')
+        iter_time = self.get_log_hitory(
+            'train', 'time', 1000, reduction='mean')
         past_iter = runner.train_loop.cur_iter
         total_iter = len(runner.train_dataset) * max_epoch
         eta_time = iter_time * (total_iter - past_iter)
-        eta_time = str(datetime.timedelta(seconds=int(eta_time)))
-        log_str_list.extend([f'eta: {eta_time}', f'time: {iter_time:.4f}'])
+        eta_time = datetime.timedelta(seconds=int(eta_time))
+        mm, ss = divmod(eta_time.seconds, 60)
+        hh, mm = divmod(mm, 60)
+        format_eta_time = f'{eta_time.days:01d} day {hh:02d}:{mm:02d}:{ss:02d}'
+        log_str_list.extend(
+            [f'eta: {format_eta_time}', f'time: {iter_time:.4f}'])
 
         # leanring rate information
         lr = runner.optimizer.lr
@@ -131,7 +136,7 @@ class LoggerHook(BaseHook):
         log_str_list.append(log_str)
 
         # iter time and etc time
-        iter_time = self.get_log_hitory(phase, 'time', 500, reduction='mean')
+        iter_time = self.get_log_hitory(phase, 'time', 1000, reduction='mean')
         past_iter = loop.cur_iter
         eta_time = iter_time * (len(dataset) - past_iter)
         eta_time = str(datetime.timedelta(seconds=int(eta_time)))

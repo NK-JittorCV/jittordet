@@ -85,7 +85,7 @@ class MultiStageFramework(BaseFramework):
             x = self.neck(x)
         return x
 
-    def _forward(self, batch_inputs: jt.Var,
+    def _execute(self, batch_inputs: jt.Var,
                  batch_data_samples: SampleList) -> tuple:
         """Network forward process. Usually includes backbone, neck and head
         forward without any post-processing.

@@ -69,7 +69,7 @@ class SmoothL1Loss(nn.Module):
         self.reduction = reduction
         self.loss_weight = loss_weight
 
-    def forward(self,
+    def execute(self,
                 pred,
                 target,
                 weight=None,
@@ -118,7 +118,7 @@ class L1Loss(nn.Module):
         self.reduction = reduction
         self.loss_weight = loss_weight
 
-    def forward(self,
+    def execute(self,
                 pred,
                 target,
                 weight=None,

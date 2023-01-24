@@ -148,7 +148,7 @@ def multi_apply(func, *args, **kwargs):
 def unmap(data, count, inds, fill=0):
     """Unmap a subset of item (data) back to the original set of items (of size
     count)"""
-    if data.dim() == 1:
+    if data.ndim == 1:
         ret = jt.full((count, ), fill, dtype=data.dtype)
         ret[inds.astype(jt.bool)] = data
     else:

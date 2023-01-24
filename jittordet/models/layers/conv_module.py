@@ -216,4 +216,4 @@ class ConvModule(nn.Module):
                 x = getattr(self, self.norm)(x)
             elif layer == 'act' and activate and self.with_activation:
                 x = self.activate(x)
-        return
+        return x
