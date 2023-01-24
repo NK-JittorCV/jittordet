@@ -61,7 +61,7 @@ class RandomSampler(BaseSampler):
         # This is a temporary fix. We can revert the following code
         # when PyTorch fixes the abnormal return of torch.randperm.
         # See: https://github.com/open-mmlab/mmdetection/pull/5014
-        perm = jt.randperm(gallery.numel())[:num].to(device=gallery.device)
+        perm = jt.randperm(gallery.numel())[:num]
         rand_inds = gallery[perm]
         if not is_tensor:
             rand_inds = rand_inds.numpy()

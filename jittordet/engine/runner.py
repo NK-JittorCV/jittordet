@@ -260,7 +260,10 @@ class Runner:
         self.val_evaluator = self.build_evaluator(self.val_evaluator)
 
         # initialization
-        self.load_or_resume()
+        if not self.load_or_resume():
+            raise RuntimeError('Model has not been load in val')
+        if not self.disable_cuda:
+            jt.flags.use_cuda = 1
 
         # start run
         self.val_loop.run()
@@ -277,10 +280,13 @@ class Runner:
         self.test_evaluator = self.build_evaluator(self.test_evaluator)
 
         # initialization
-        self.load_or_resume()
+        if not self.load_or_resume():
+            raise RuntimeError('Model has not been load in test')
+        if not self.disable_cuda:
+            jt.flags.use_cuda = 1
 
         # start run
-        self.val_loop.run()
+        self.test_loop.run()
 
     def setup_logger_dir(self, phase):
         assert phase in ['train', 'val', 'test']
@@ -316,6 +322,7 @@ class Runner:
         return False
 
     def resume(self, checkpoint):
+        self.logger.info(f'Start resume state dict from {checkpoint}')
         data = jt.load(checkpoint)
         model_state_dict = data['state_dict']
         self.model.load_state_dict(model_state_dict)
@@ -335,11 +342,14 @@ class Runner:
                 if scheduler_name in data['scheduler']:
                     scheduler.load_state_dict(
                         data['scheduler'][scheduler_name])
+        self.logger.info('Finish resuming')
 
     def load(self, checkpoint):
+        self.logger.info(f'Start load parameters from {checkpoint}')
         data = jt.load(checkpoint)
         model_state_dict = data['state_dict']
         self.model.load_state_dict(model_state_dict)
+        self.logger.info('Finish loading checkpoint')
 
     @jt.single_process_scope()
     def save_checkpoint(self, filepath, end_epoch=True):

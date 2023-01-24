@@ -139,8 +139,12 @@ class LoggerHook(BaseHook):
         iter_time = self.get_log_hitory(phase, 'time', 1000, reduction='mean')
         past_iter = loop.cur_iter
         eta_time = iter_time * (len(dataset) - past_iter)
-        eta_time = str(datetime.timedelta(seconds=int(eta_time)))
-        log_str_list.extend([f'eta: {eta_time}', f'time: {iter_time:.4f}'])
+        eta_time = datetime.timedelta(seconds=int(eta_time))
+        mm, ss = divmod(eta_time.seconds, 60)
+        hh, mm = divmod(mm, 60)
+        format_eta_time = f'{eta_time.days:01d} day {hh:02d}:{mm:02d}:{ss:02d}'
+        log_str_list.extend(
+            [f'eta: {format_eta_time}', f'time: {iter_time:.4f}'])
 
         # other information
         for key in self._select_log_history(phase).keys():
@@ -205,7 +209,7 @@ class LoggerHook(BaseHook):
         self.update_log_hitory('test', 'time', iter_time)
 
         if self.every_n_interval(batch_idx, self.interval):
-            log_str = self.format_test_val_log_str(runner, batch_idx, 'val')
+            log_str = self.format_test_val_log_str(runner, batch_idx, 'test')
             if jt.rank == 0:
                 runner.logger.info(log_str)
 

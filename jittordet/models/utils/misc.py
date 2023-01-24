@@ -103,8 +103,7 @@ def filter_scores_and_topk(scores, score_thr, topk, results=None):
     valid_idxs = jt.nonzero(valid_mask)
 
     num_topk = min(topk, valid_idxs.size(0))
-    # torch.sort is actually faster than .topk (at least on GPUs)
-    scores, idxs = scores.sort(descending=True)
+    idxs, scores = jt.argsort(scores, descending=True)
     scores = scores[:num_topk]
     topk_idxs = valid_idxs[idxs[:num_topk]]
     keep_idxs, labels = topk_idxs.unbind(dim=1)

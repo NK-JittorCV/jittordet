@@ -101,7 +101,7 @@ class SingleStageFramework(BaseFramework):
             tuple[list]: A tuple of features from ``bbox_head`` forward.
         """
         x = self.extract_feat(batch_inputs)
-        results = self.bbox_head.forward(x)
+        results = self.bbox_head.execute(x)
         return results
 
     def extract_feat(self, batch_inputs: jt.Var) -> Tuple[jt.Var]:

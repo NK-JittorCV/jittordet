@@ -293,7 +293,7 @@ class BaseDataElement:
         new_data = self.new()
         for k, v in self.items():
             if isinstance(v, (jt.Var, BaseDataElement)):
-                v = v.detach().cpu().numpy()
+                v = v.detach().numpy()
                 data = {k: v}
                 new_data.set_data(data)
         return new_data
