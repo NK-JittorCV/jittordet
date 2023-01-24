@@ -17,8 +17,8 @@ class AspectRatioBatchSampler(BaseBatchSampler):
 
     @property
     def batch_len(self):
-        length = self.data_list_len // self.batch_size
-        if self.drop_last:
+        length = int((self.data_list_len - 0.5) // self.batch_size)
+        if not self.drop_last:
             length += 1
         return length
 

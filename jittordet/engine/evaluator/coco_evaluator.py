@@ -1,20 +1,17 @@
+# Modified from OpenMMLab. mmdet/evaluation/metrics/coco_metric.py
+# Copyright (c) OpenMMLab. All rights reserved.
+import itertools
 import json
 import os
 import os.path as osp
-import warnings
+# import warnings
+from collections import OrderedDict
+# from typing import List, Optional, Sequence, Union
+from typing import Optional
 
 import numpy as np
-
-try:
-    # from pycocotools.coco import COCO
-    from pycocotools.cocoeval import COCOeval
-except:  # noqa E722
-    warnings.warn('pycocotools is not installed!')
-
-import itertools
-from collections import OrderedDict
-from typing import List, Optional, Sequence, Union
-
+# from pycocotools.coco import COCO
+from pycocotools.cocoeval import COCOeval
 from terminaltables import AsciiTable
 
 from ..register import EVALUATORS
@@ -23,54 +20,153 @@ from .base_evaluator import BaseEvaluator
 
 @EVALUATORS.register_module()
 class CocoEvaluator(BaseEvaluator):
+    """COCO evaluation metric.
 
-    def __init__(self,
-                 ann_file: Optional[str] = None,
-                 metric: Union[str, List[str]] = 'bbox',
-                 classwise: bool = False,
-                 proposal_nums: Sequence[int] = (100, 300, 1000),
-                 iou_thrs: Optional[Union[float, Sequence[float]]] = None,
-                 metric_items: Optional[Sequence[str]] = None,
-                 format_only: bool = False,
-                 outfile_prefix: Optional[str] = None) -> None:
-        pass
-        # super().__init__()
-        # # coco evaluation metrics
-        # self.metrics = metric if isinstance(metric, list) else [metric]
-        # allowed_metrics = ['bbox', 'proposal']
-        # for metric in self.metrics:
-        #     if metric not in allowed_metrics:
-        #         raise KeyError(
-        #             "metric should be one of 'bbox', 'segm', 'proposal', "
-        #             f"'proposal_fast', but got {metric}.")
+    Evaluate AR, AP, and mAP for detection tasks including proposal/box
+    detection and instance segmentation. Please refer to
+    https://cocodataset.org/#detection-eval for more details.
+    Args:
+        ann_file (str, optional): Path to the coco format annotation file.
+            If not specified, ground truth annotations from the dataset will
+            be converted to coco format. Defaults to None.
+        metric (str | List[str]): Metrics to be evaluated. Valid metrics
+            include 'bbox', 'segm', 'proposal', and 'proposal_fast'.
+            Defaults to 'bbox'.
+        classwise (bool): Whether to evaluate the metric class-wise.
+            Defaults to False.
+        proposal_nums (Sequence[int]): Numbers of proposals to be evaluated.
+            Defaults to (100, 300, 1000).
+        iou_thrs (float | List[float], optional): IoU threshold to compute AP
+            and AR. If not specified, IoUs from 0.5 to 0.95 will be used.
+            Defaults to None.
+        metric_items (List[str], optional): Metric result names to be
+            recorded in the evaluation result. Defaults to None.
+        format_only (bool): Format the output results without perform
+            evaluation. It is useful when you want to format the result
+            to a specific format and submit it to the test server.
+            Defaults to False.
+        outfile_prefix (str, optional): The prefix of json files. It includes
+            the file path and the prefix of filename, e.g., "a/b/prefix".
+            If not specified, a temp file will be created. Defaults to None.
+        file_client_args (dict): Arguments to instantiate a FileClient.
+            See :class:`mmengine.fileio.FileClient` for details.
+            Defaults to ``dict(backend='disk')``.
+        collect_device (str): Device name used for collecting results from
+            different ranks during distributed training. Must be 'cpu' or
+            'gpu'. Defaults to 'cpu'.
+        prefix (str, optional): The prefix that will be added in the metric
+            names to disambiguate homonymous metrics of different evaluators.
+            If prefix is not provided in the argument, self.default_prefix
+            will be used instead. Defaults to None.
+    """
+    default_prefix: Optional[str] = 'coco'
 
-        # # do class wise evaluation, default False
-        # self.classwise = classwise
+    # def __init__(self,
+    #              ann_file: Optional[str] = None,
+    #              metric: Union[str, List[str]] = 'bbox',
+    #              classwise: bool = False,
+    #              proposal_nums: Sequence[int] = (100, 300, 1000),
+    #              iou_thrs: Optional[Union[float, Sequence[float]]] = None,
+    #              metric_items: Optional[Sequence[str]] = None,
+    #              format_only: bool = False,
+    #              outfile_prefix: Optional[str] = None,
+    #              file_client_args: dict = dict(backend='disk'),
+    #              collect_device: str = 'cpu',
+    #              prefix: Optional[str] = None) -> None:
+    #     super().__init__(collect_device=collect_device, prefix=prefix)
+    #     # coco evaluation metrics
+    #     self.metrics = metric if isinstance(metric, list) else [metric]
+    #     allowed_metrics = ['bbox', 'segm', 'proposal', 'proposal_fast']
+    #     for metric in self.metrics:
+    #         if metric not in allowed_metrics:
+    #             raise KeyError(
+    #                 "metric should be one of 'bbox', 'segm', 'proposal', "
+    #                 f"'proposal_fast', but got {metric}.")
 
-        # # proposal_nums used to compute recall or precision.
-        # self.proposal_nums = list(proposal_nums)
+    #     # do class wise evaluation, default False
+    #     self.classwise = classwise
 
-        # # iou_thrs used to compute recall or precision.
-        # self.iou_thrs = None
-        # if iou_thrs is None:
-        #     self.iou_thrs = np.linspace(
-        #         .5, 0.95, int(np.round((0.95 - .5) / .05)) + 1,
-        #         endpoint=True)
+    #     # proposal_nums used to compute recall or precision.
+    #     self.proposal_nums = list(proposal_nums)
 
-        # self.metric_items = metric_items
-        # self.format_only = format_only
-        # self.outfile_prefix = outfile_prefix
+    #     # iou_thrs used to compute recall or precision.
+    #     if iou_thrs is None:
+    #         iou_thrs = np.linspace(
+    #             .5, 0.95, int(np.round((0.95 - .5) / .05)) + 1,
+    #               endpoint=True)
+    #     self.iou_thrs = iou_thrs
+    #     self.metric_items = metric_items
+    #     self.format_only = format_only
+    #     if self.format_only:
+    #         assert outfile_prefix is not None, 'outfile_prefix must be not'
+    #         'None when format_only is True, otherwise the result files will'
+    #         'be saved to a temp directory which will be cleaned up at the
+    # end.'
 
-        # # if ann_file is not specified,
-        # # initialize coco api with the converted dataset
-        # if ann_file is not None:
-        #     self._coco_api = COCO(ann_file)
-        # else:
-        #     self._coco_api = None
+    #     self.outfile_prefix = outfile_prefix
 
-        # # handle dataset lazy init
-        # self.cat_ids = None
-        # self.img_ids = None
+    #     self.file_client_args = file_client_args
+    #     self.file_client = FileClient(**file_client_args)
+
+    #     # if ann_file is not specified,
+    #     # initialize coco api with the converted dataset
+    #     if ann_file is not None:
+    #         with self.file_client.get_local_path(ann_file) as local_path:
+    #             self._coco_api = COCO(local_path)
+    #     else:
+    #         self._coco_api = None
+
+    #     # handle dataset lazy init
+    #     self.cat_ids = None
+    #     self.img_ids = None
+
+    # def __init__(self,
+    #              ann_file: Optional[str] = None,
+    #              metric: Union[str, List[str]] = 'bbox',
+    #              classwise: bool = False,
+    #              proposal_nums: Sequence[int] = (100, 300, 1000),
+    #              iou_thrs: Optional[Union[float, Sequence[float]]] = None,
+    #              metric_items: Optional[Sequence[str]] = None,
+    #              format_only: bool = False,
+    #              outfile_prefix: Optional[str] = None) -> None:
+    #     pass
+    # super().__init__()
+    # # coco evaluation metrics
+    # self.metrics = metric if isinstance(metric, list) else [metric]
+    # allowed_metrics = ['bbox', 'proposal']
+    # for metric in self.metrics:
+    #     if metric not in allowed_metrics:
+    #         raise KeyError(
+    #             "metric should be one of 'bbox', 'segm', 'proposal', "
+    #             f"'proposal_fast', but got {metric}.")
+
+    # # do class wise evaluation, default False
+    # self.classwise = classwise
+
+    # # proposal_nums used to compute recall or precision.
+    # self.proposal_nums = list(proposal_nums)
+
+    # # iou_thrs used to compute recall or precision.
+    # self.iou_thrs = None
+    # if iou_thrs is None:
+    #     self.iou_thrs = np.linspace(
+    #         .5, 0.95, int(np.round((0.95 - .5) / .05)) + 1,
+    #         endpoint=True)
+
+    # self.metric_items = metric_items
+    # self.format_only = format_only
+    # self.outfile_prefix = outfile_prefix
+
+    # # if ann_file is not specified,
+    # # initialize coco api with the converted dataset
+    # if ann_file is not None:
+    #     self._coco_api = COCO(ann_file)
+    # else:
+    #     self._coco_api = None
+
+    # # handle dataset lazy init
+    # self.cat_ids = None
+    # self.img_ids = None
 
     def process_results(self, results):
         preds = []
