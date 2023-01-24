@@ -18,6 +18,8 @@ def iter_leaves(obj):
 
 
 def set_leaf(obj, keys, value):
+    if isinstance(keys, str):
+        keys = keys.split('.')
     for k in keys[:-1]:
         obj = obj[k]
     obj[keys[-1]] = value

@@ -1,3 +1,4 @@
+import copy
 import os
 import os.path as osp
 import re
@@ -5,10 +6,10 @@ import re
 from .utils import iter_leaves, set_leaf
 
 
-def env_variable_parsers(cfg):
+def env_variable_parser(cfg):
     """use environment variables in cfg."""
     regexp1 = r'^\s*\$(\w+)\s*\:\s*(\S*?)\s*$'
-    regexp2 = r'\{\s*\$(\w+)\s*\:\s*(\S*?)\s*\}'
+    regexp2 = r'\<\s*\$(\w+)\s*\:\s*(\S*?)\s*\>'
     for keys, value in iter_leaves(cfg):
         if not isinstance(value, str):
             continue
@@ -25,15 +26,15 @@ def env_variable_parsers(cfg):
         # partial string is environment
         results = re.findall(regexp2, value)
         for var_name, def_value in results:
-            regexp = r'\{\s*\$' + var_name + r'\s*\:\s*' \
-                + def_value + r'\s*\}'
+            regexp = r'\<\s*\$' + var_name + r'\s*\:\s*' \
+                + def_value + r'\s*\>'
             new_value = os.environ[var_name] if var_name in os.environ \
                 else def_value
             value = re.sub(regexp, new_value, value)
         set_leaf(cfg, keys, value)
 
 
-def default_var_parsers(cfg):
+def default_var_parser(cfg):
     """set some default value in cfg."""
     filename = cfg['filename']
     file_dirname = osp.dirname(filename)
@@ -51,14 +52,14 @@ def default_var_parsers(cfg):
             continue
 
         for k, v in support_templates.items():
-            regexp = r'\{\s*' + str(k) + r'\s*\}'
+            regexp = r'\<\s*' + str(k) + r'\s*\>'
             v = v.replace('\\', '/')
             value = re.sub(regexp, v, value)
 
         set_leaf(cfg, keys, value)
 
 
-def tuple_parsers(cfg):
+def tuple_parser(cfg):
     for keys, value in iter_leaves(cfg):
         if not isinstance(value, str):
             continue
@@ -73,4 +74,19 @@ def tuple_parsers(cfg):
                 set_leaf(cfg, keys, value)
 
 
-cfg_parsers = [env_variable_parsers, default_var_parsers, tuple_parsers]
+def python_eval_parser(cfg):
+    eval_global = copy.deepcopy(cfg)
+    for keys, value in iter_leaves(cfg):
+        if not isinstance(value, str):
+            continue
+        if not value.startswith('<') or not value.endswith('>'):
+            continue
+
+        value = value[1:-1]
+        value = eval(value, eval_global)
+        set_leaf(cfg, keys, value)
+
+
+cfg_parsers = [
+    env_variable_parser, default_var_parser, tuple_parser, python_eval_parser
+]
