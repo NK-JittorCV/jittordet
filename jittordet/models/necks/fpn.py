@@ -1,9 +1,11 @@
 from jittor import nn
 
+from jittordet.engine import MODELS
 from jittordet.models.layers import ConvModule
 from jittordet.models.utils import xavier_init
 
 
+@MODELS.register_module()
 class FPN(nn.Module):
     r"""Feature Pyramid Network.
     This is an implementation of paper `Feature Pyramid Networks for Object

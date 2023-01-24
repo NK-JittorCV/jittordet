@@ -6,7 +6,7 @@ import warnings
 import numpy as np
 
 try:
-    from pycocotools.coco import COCO
+    # from pycocotools.coco import COCO
     from pycocotools.cocoeval import COCOeval
 except:  # noqa E722
     warnings.warn('pycocotools is not installed!')
@@ -33,43 +33,44 @@ class CocoEvaluator(BaseEvaluator):
                  metric_items: Optional[Sequence[str]] = None,
                  format_only: bool = False,
                  outfile_prefix: Optional[str] = None) -> None:
-        super().__init__()
-        # coco evaluation metrics
-        self.metrics = metric if isinstance(metric, list) else [metric]
-        allowed_metrics = ['bbox', 'proposal']
-        for metric in self.metrics:
-            if metric not in allowed_metrics:
-                raise KeyError(
-                    "metric should be one of 'bbox', 'segm', 'proposal', "
-                    f"'proposal_fast', but got {metric}.")
+        pass
+        # super().__init__()
+        # # coco evaluation metrics
+        # self.metrics = metric if isinstance(metric, list) else [metric]
+        # allowed_metrics = ['bbox', 'proposal']
+        # for metric in self.metrics:
+        #     if metric not in allowed_metrics:
+        #         raise KeyError(
+        #             "metric should be one of 'bbox', 'segm', 'proposal', "
+        #             f"'proposal_fast', but got {metric}.")
 
-        # do class wise evaluation, default False
-        self.classwise = classwise
+        # # do class wise evaluation, default False
+        # self.classwise = classwise
 
-        # proposal_nums used to compute recall or precision.
-        self.proposal_nums = list(proposal_nums)
+        # # proposal_nums used to compute recall or precision.
+        # self.proposal_nums = list(proposal_nums)
 
-        # iou_thrs used to compute recall or precision.
-        self.iou_thrs = None
-        if iou_thrs is None:
-            self.iou_thrs = np.linspace(
-                .5, 0.95, int(np.round((0.95 - .5) / .05)) + 1, endpoint=True)
+        # # iou_thrs used to compute recall or precision.
+        # self.iou_thrs = None
+        # if iou_thrs is None:
+        #     self.iou_thrs = np.linspace(
+        #         .5, 0.95, int(np.round((0.95 - .5) / .05)) + 1,
+        #         endpoint=True)
 
-        self.metric_items = metric_items
-        self.format_only = format_only
-        self.outfile_prefix = outfile_prefix
+        # self.metric_items = metric_items
+        # self.format_only = format_only
+        # self.outfile_prefix = outfile_prefix
 
-        # if ann_file is not specified,
-        # initialize coco api with the converted dataset
-        if ann_file is not None:
-            with self.file_client.get_local_path(ann_file) as local_path:
-                self._coco_api = COCO(local_path)
-        else:
-            self._coco_api = None
+        # # if ann_file is not specified,
+        # # initialize coco api with the converted dataset
+        # if ann_file is not None:
+        #     self._coco_api = COCO(ann_file)
+        # else:
+        #     self._coco_api = None
 
-        # handle dataset lazy init
-        self.cat_ids = None
-        self.img_ids = None
+        # # handle dataset lazy init
+        # self.cat_ids = None
+        # self.img_ids = None
 
     def process_results(self, results):
         preds = []

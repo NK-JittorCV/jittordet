@@ -1,7 +1,8 @@
-data_root: $DATA_ROOT:data/coco/
-num_gpus: $NUM_GPUS:8
+data_root: $DATA_ROOT:/data/coco/
+num_gpus: $NUM_GPUS:1
 
 train_dataset:
+  type: CocoDataset
   batch_size: <2 * num_gpus>
   num_works: <2 * num_gpus>
   data_root: <data_root>
@@ -25,11 +26,12 @@ train_dataset:
     - type: 'PackDetInputs'
 
 val_dataset: &val_dataset
+  type: CocoDataset
   batch_size: <1 * num_gpus>
   num_works: <2 * num_gpus>
   data_root: <data_root>
   datasetwise_cfg:
-    ann_file: annotations/instances_val.json
+    ann_file: annotations/instances_val2017.json
     img_path: val2017
   test_mode: true
   batch_sampler:
@@ -47,8 +49,8 @@ val_dataset: &val_dataset
 test_dataset: *val_dataset
 
 val_evaluator: &val_evaluator
-  type: CocoMetric
+  type: CocoEvaluator
   ann_file: <data_root + "annotations/instances_val2017.json">
-  metric: bbox,
+  metric: bbox
   format_only: false
 test_evaluator: *val_evaluator

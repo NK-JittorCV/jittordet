@@ -5,6 +5,7 @@ from collections import OrderedDict
 from typing import Dict, List, Tuple, Union
 
 import jittor as jt
+import jittor.nn as nn
 
 from jittordet.engine import MODELS
 from jittordet.structures import (DetDataSample, InstanceList, OptSampleList,
@@ -15,7 +16,7 @@ ForwardResults = Union[Dict[str, jt.Var], List[DetDataSample], Tuple[jt.Var],
                        jt.Var]
 
 
-class BaseFramework(metaclass=ABCMeta):
+class BaseFramework(nn.Module, metaclass=ABCMeta):
     """Base class for detectors.
 
     Args:
@@ -27,6 +28,7 @@ class BaseFramework(metaclass=ABCMeta):
     """
 
     def __init__(self, preprocessor=None):
+        super().__init__()
         self.preprocessor = MODELS.build(preprocessor)
 
     @property

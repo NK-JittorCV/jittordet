@@ -1,5 +1,5 @@
 model:
-  type: OneStageFrameWork
+  type: SingleStageFramework
   preprocessor:
     type: Preprocessor
     mean: [123.675, 116.28, 103.53]
@@ -45,7 +45,7 @@ model:
     loss_bbox:
       type: L1Loss
       loss_weight: 1.0
-  tran_cfg:
+  train_cfg:
     assigner:
       type: 'MaxIoUAssigner'
       pos_iou_thr: 0.5

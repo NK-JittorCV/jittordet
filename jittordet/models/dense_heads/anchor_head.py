@@ -98,9 +98,8 @@ class AnchorHead(BaseDenseHead):
         self.conv_cls = nn.Conv2d(self.in_channels,
                                   self.num_base_priors * self.cls_out_channels,
                                   1)
-        reg_dim = self.bbox_coder.encode_size
-        self.conv_reg = nn.Conv2d(self.in_channels,
-                                  self.num_base_priors * reg_dim, 1)
+        self.conv_reg = nn.Conv2d(self.in_channels, self.num_base_priors * 4,
+                                  1)
 
     def init_weights(self):
         for m in self.modules():

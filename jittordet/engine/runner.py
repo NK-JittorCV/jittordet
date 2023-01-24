@@ -137,15 +137,17 @@ class Runner:
         return self._experiment_name
 
     def init_model_weights(self):
+        self.logger.info('Start initialize model weights.')
 
         def dfs_run_init_weights(model):
-            for m in model.modules():
+            for m in model._modules.values():
                 dfs_run_init_weights(m)
 
             if hasattr(model, 'init_weights'):
                 model.init_weights()
 
         dfs_run_init_weights(self.model)
+        self.logger.info('Initialize succeed.')
 
     def build_model(self, model):
         if isinstance(model, nn.Module):
@@ -238,8 +240,8 @@ class Runner:
             self.val_evaluator = self.build_evaluator(self.val_evaluator)
 
         # initialization
-        self.init_model_weights()
-        self.load_or_resume()
+        if not self.load_or_resume():
+            self.init_model_weights()
         if not self.disable_cuda:
             jt.flags.use_cuda = 1
 
@@ -307,8 +309,11 @@ class Runner:
             'Can only set either "load_from" or "resume_from"'
         if self._load_from:
             self.load(self._load_from)
+            return True
         if self._resume_from:
             self.resume(self._resume_from)
+            return True
+        return False
 
     def resume(self, checkpoint):
         data = jt.load(checkpoint)
