@@ -33,7 +33,11 @@ class CheckpointHook(BaseHook):
             if jt.rank == 0:
                 runner.logger.info(f'save checkpoint to {ckpt_filepath}')
 
-    def after_train_iter(self, runner):
+    def after_train_iter(self,
+                         runner,
+                         batch_idx,
+                         data_batch=None,
+                         outputs=None):
         if not self.by_iter:
             return None
         cur_iter = runner.train_loop.cur_iter
