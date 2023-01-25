@@ -42,20 +42,19 @@ def accuracy(pred, target, topk=1, thresh=None):
         f'maxk {maxk} exceeds pred dimension {pred.size(1)}'
     pred_value, pred_label = pred.topk(maxk, dim=1)
     pred_label = pred_label.t()  # transpose to shape (maxk, N)
-    correct = pred_label.eq(target.view(1, -1).expand_as(pred_label))
+    
+    correct = jt.equal(pred_label, target.view(1, -1).expand_as(pred_label))
     if thresh is not None:
         # Only prediction values larger than thresh are counted as correct
         correct = correct & (pred_value > thresh).t()
     res = []
     for k in topk:
-        correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
-        res.append(correct_k.mul_(100.0 / pred.size(0)))
+        correct_k = correct[:k].reshape(-1).float().sum(0, keepdims=True)
+        res.append(jt.multiply(correct_k, 100.0 / pred.size(0)))
     return res[0] if return_single else res
 
 
-MODELS.register_module()
-
-
+@MODELS.register_module()
 class Accuracy(nn.Module):
 
     def __init__(self, topk=(1, ), thresh=None):
