@@ -1,0 +1,56 @@
+data_root: $DATA_ROOT:data/coco/
+num_gpus: $NUM_GPUS:8
+
+train_dataset:
+  type: CocoDataset
+  batch_size: <2 * num_gpus>
+  num_works: <2 * num_gpus>
+  data_root: <data_root>
+  datasetwise_cfg:
+    ann_file: annotations/instances_train2017.json
+    img_path: train2017
+  filter_cfg:
+    filter_empty_gt: true
+    min_size: 32
+  batch_sampler:
+    type: AspectRatioBatchSampler
+  transforms:
+    - type: 'LoadImageFromFile'
+    - type: 'LoadAnnotations'
+      with_bbox: true
+    - type: 'Resize'
+      scale: (1333, 800)
+      keep_ratio: true
+    - type: 'RandomFlip'
+      prob: 0.5
+    - type: 'PackDetInputs'
+
+val_dataset: &val_dataset
+  type: CocoDataset
+  batch_size: <1 * num_gpus>
+  num_works: <2 * num_gpus>
+  data_root: <data_root>
+  datasetwise_cfg:
+    ann_file: annotations/instances_val2017.json
+    img_path: val2017
+  test_mode: true
+  batch_sampler:
+    type: PadBatchSampler
+  transforms:
+    - type: 'LoadImageFromFile'
+    - type: 'LoadAnnotations'
+      with_bbox: true
+    - type: 'Resize'
+      scale: (1333, 800)
+      keep_ratio: true
+    - type: 'PackDetInputs'
+      meta_keys: [img_id, img_path, ori_shape, img_shape, 'scale_factor', 'sample_idx']
+
+test_dataset: *val_dataset
+
+val_evaluator: &val_evaluator
+  type: CocoEvaluator
+  ann_file: <data_root + "annotations/instances_val2017.json">
+  metric: bbox
+  format_only: false
+test_evaluator: *val_evaluator
