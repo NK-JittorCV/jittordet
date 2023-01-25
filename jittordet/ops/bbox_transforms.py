@@ -756,5 +756,5 @@ def get_bbox_areas(bboxes):
 def scale_boxes(boxes: jt.Var,
                 scale_factor: Tuple[float, float]) -> jt.Var:
     repeat_num = int(boxes.size(-1) / 2)
-    scale_factor = boxes.new_tensor(scale_factor).repeat((1, repeat_num))
+    scale_factor = jt.Var(scale_factor).repeat((1, repeat_num))
     return boxes * scale_factor
