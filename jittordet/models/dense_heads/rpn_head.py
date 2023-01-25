@@ -45,12 +45,13 @@ class RPNHead(AnchorHead):
                         in_channels,
                         self.feat_channels,
                         3,
-                        padding=1,
-                        inplace=False))
+                        padding=1))
             self.rpn_conv = nn.Sequential(*rpn_convs)
         else:
-            self.rpn_conv = nn.Conv2d(
-                self.in_channels, self.feat_channels, 3, padding=1)
+            self.rpn_conv = nn.Conv2d(self.in_channels, 
+                                      self.feat_channels, 
+                                      3, 
+                                      padding=1)
         self.rpn_cls = nn.Conv2d(self.feat_channels,
                                  self.num_base_priors * self.cls_out_channels,
                                  1)
@@ -102,14 +103,14 @@ class RPNHead(AnchorHead):
             assert cls_score.shape[-2:] == bbox_pred.shape[-2:]
             reg_dim = self.bbox_coder.encode_size
             bbox_pred = bbox_pred.permute(1, 2, 0).reshape(-1, reg_dim)
+            cls_score = cls_score.permute(1, 2, 0).reshape(-1, self.cls_out_channels)
             if self.use_sigmoid_cls:
                 scores = cls_score.sigmoid()
             else:
                 # remind that we set FG labels to [0] since mmdet v2.0
                 # BG cat_id: 1
                 scores = nn.softmax(cls_score ,-1)[:, :-1]
-            
-            scores = jt.squeeze(scores)
+            scores = jt.squeeze(scores, -1)
             if 0 < nms_pre < scores.shape[0]:
                 # sort is faster than topk
                 # _, topk_inds = scores.topk(cfg.nms_pre)
@@ -131,8 +132,7 @@ class RPNHead(AnchorHead):
         results = InstanceData()
         results.bboxes = bboxes
         results.scores = jt.concat(mlvl_scores)
-        results.level_ids = jt.concat(level_ids)
-        
+        results.level_ids = jt.concat(level_ids)        
         return self._bbox_post_process(results=results, 
                                        cfg=cfg, 
                                        rescale=rescale, 
