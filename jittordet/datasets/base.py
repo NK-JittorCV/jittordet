@@ -124,7 +124,6 @@ class BaseDetDataset(Dataset):
                     v =  [osp.join(self.data_root, i) for i in v if not osp.isabs(i)]
             else:
                 raise NotImplementedError
-            print(k, v)
             setattr(self, k, v)
 
     def load_data_list(self):
