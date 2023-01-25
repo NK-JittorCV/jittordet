@@ -54,6 +54,8 @@ class BaseEvaluator(metaclass=ABCMeta):
                   'wb') as f:  # type: ignore
             pickle.dump(result_part, f, protocol=2)
 
+        self.barrier()
+
         if rank != 0:
             return None
         else:
@@ -82,9 +84,19 @@ class BaseEvaluator(metaclass=ABCMeta):
             with open(osp.join(tmpdir, 'metrics.pkl'), 'wb') as f:
                 pickle.dump(metrics, f, protocol=2)
 
+        self.barrier()
+
         with open(osp.join(tmpdir, 'metrics.pkl'), 'rb') as f:
             metrics = pickle.load(f)
 
         if jt.rank == 0:
             shutil.rmtree(tmpdir)  # type: ignore
         return metrics
+
+    @staticmethod
+    def barrier():
+        if jt.in_mpi:
+            lock = jt.array([1])
+            lock = lock.mpi_all_reduce('mean')
+            lock.sync(device_sync=True)
+            del lock

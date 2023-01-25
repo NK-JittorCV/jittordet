@@ -239,8 +239,8 @@ class CocoEvaluator(BaseEvaluator):
 
         return result_files
 
-    def gt_to_coco_json(self, gt_dicts: Sequence[dict],
-                        outfile_prefix: str) -> str:
+    def gt_to_coco_json(self, gt_dicts: Sequence[dict], outfile_prefix: str,
+                        class_names: List[str]) -> str:
         """Convert ground truth to coco format json file.
 
         Args:
@@ -252,8 +252,7 @@ class CocoEvaluator(BaseEvaluator):
             str: The filename of the json file.
         """
         categories = [
-            dict(id=id, name=name)
-            for id, name in enumerate(self.dataset_meta['CLASSES'])
+            dict(id=id, name=name) for id, name in enumerate(class_names)
         ]
         image_infos = []
         annotations = []
@@ -266,7 +265,7 @@ class CocoEvaluator(BaseEvaluator):
                 height=gt_dict['height'],
                 file_name='')
             image_infos.append(image_info)
-            for ann in gt_dict['anns']:
+            for ann in gt_dict['instances']:
                 label = ann['bbox_label']
                 bbox = ann['bbox']
                 coco_bbox = [
@@ -341,8 +340,8 @@ class CocoEvaluator(BaseEvaluator):
 
             # parse gt
             if self._coco_api is None:
-                sample_idx = data_samples.meta_infos['sample_idx']
-                gt = copy.deepcopy(dataset.data_infos[sample_idx])
+                sample_idx = data_sample['sample_idx']
+                gt = copy.deepcopy(dataset.data_list[sample_idx])
             else:
                 gt = None
             # add converted result to the results list
@@ -373,7 +372,9 @@ class CocoEvaluator(BaseEvaluator):
             # use converted gt json file to initialize coco api
             logger.info('Converting ground truth to coco format...')
             coco_json_path = self.gt_to_coco_json(
-                gt_dicts=gts, outfile_prefix=outfile_prefix)
+                gt_dicts=gts,
+                outfile_prefix=outfile_prefix,
+                class_names=dataset.metainfo['classes'])
             self._coco_api = COCO(coco_json_path)
 
         # handle lazy init
