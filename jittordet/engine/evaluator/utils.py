@@ -475,6 +475,7 @@ def eval_map(det_results,
              iou_thr=0.5,
              ioa_thr=None,
              dataset=None,
+             class_names=None,
              logger=None,
              tpfp_fn=None,
              nproc=4,
@@ -614,13 +615,13 @@ def eval_map(det_results,
         mean_ap = np.array(aps).mean().item() if aps else 0.0
 
     print_map_summary(
-        mean_ap, eval_results, dataset, area_ranges, logger=logger)
+        mean_ap, eval_results, class_names, area_ranges, logger=logger)
     return mean_ap, eval_results
 
 
 def print_map_summary(mean_ap,
                       results,
-                      dataset=None,
+                      class_names=None,
                       scale_ranges=None,
                       logger=None):
     """Print mAP and results of each class.
@@ -659,10 +660,10 @@ def print_map_summary(mean_ap,
         aps[:, i] = cls_result['ap']
         num_gts[:, i] = cls_result['num_gts']
 
-    if dataset is None:
+    if class_names is None:
         label_names = [str(i) for i in range(num_classes)]
     else:
-        label_names = dataset
+        label_names = class_names
 
     if not isinstance(mean_ap, list):
         mean_ap = [mean_ap]
