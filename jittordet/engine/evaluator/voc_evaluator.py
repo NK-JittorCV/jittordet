@@ -50,7 +50,7 @@ class VocEvaluator(BaseEvaluator):
                  eval_mode: str = '11points',
                  collect_device: str = 'cpu',
                  prefix: Optional[str] = None) -> None:
-        super().__init__(collect_device=collect_device, prefix=prefix)
+        # super().__init__(collect_device=collect_device, prefix=prefix)
         self.iou_thrs = [iou_thrs] if isinstance(iou_thrs, float) \
             else iou_thrs
         self.scale_ranges = scale_ranges
@@ -81,6 +81,7 @@ class VocEvaluator(BaseEvaluator):
             data_samples (Sequence[dict]): A batch of data samples that
                 contain annotations and predictions.
         """
+        self.results = []
         for data_sample in data_samples:
             if isinstance(data_sample, BaseDataElement):
                 data_sample = data_sample.to_dict()
@@ -91,7 +92,7 @@ class VocEvaluator(BaseEvaluator):
             pred_labels = pred['labels'].cpu().numpy()
 
             dets = []
-            for label in range(len(dataset.metainfo['classes'])):
+            for label in range(len(dataset.metainfo['CLASSES'])):
                 index = np.where(pred_labels == label)[0]
                 pred_bbox_scores = np.hstack(
                     [pred_bboxes[index], pred_scores[index].reshape((-1, 1))])
