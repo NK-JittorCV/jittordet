@@ -1,7 +1,7 @@
 import os
 import os.path as osp
 from collections.abc import Mapping
-from typing import Optional, Union
+from typing import Optional, Union, List
 
 from addict import Dict
 
@@ -42,6 +42,9 @@ class ConfigDict(Dict):
 
 ConfigType = Union[ConfigDict, dict]
 OptConfigType = Optional[ConfigType]
+
+MultiConfig = Union[ConfigType, List[ConfigType]]
+OptMultiConfig = Optional[MultiConfig]
 
 
 def load_cfg(filepath):
