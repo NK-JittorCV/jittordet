@@ -116,8 +116,15 @@ class BaseDetDataset(Dataset):
         for k, v in datasetwise_cfg.items():
             if hasattr(self, k):
                 raise RuntimeError(f'Attr {k} has been set in {type(self)}')
-            if ('path' in k or 'file' in k) and not osp.isabs(v):
-                v = osp.join(self.data_root, v)
+            if isinstance(v, str):
+                if ('path' in k or 'file' in k) and not osp.isabs(v):
+                    v = osp.join(self.data_root, v)
+            elif isinstance(v, list):
+                if ('path' in k or 'file' in k):
+                    v =  [osp.join(self.data_root, i) for i in v if not osp.isabs(i)]
+            else:
+                raise NotImplementedError
+            print(k, v)
             setattr(self, k, v)
 
     def load_data_list(self):
