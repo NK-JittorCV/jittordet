@@ -1,10 +1,11 @@
 # Modified from OpenMMLab. mmdet/models/utils/misc.py
 # Copyright (c) OpenMMLab. All rights reserved.
 from functools import partial
+from typing import List, Union
 
 import jittor as jt
 
-from jittordet.structures import SampleList
+from jittordet.structures import SampleList, OptInstanceList, InstanceData
 
 
 def unpack_gt_instances(batch_data_samples: SampleList) -> tuple:
@@ -171,3 +172,48 @@ def images_to_levels(target, num_levels):
         level_targets.append(target[:, start:end])
         start = end
     return level_targets
+
+
+
+def empty_instances(batch_img_metas: List[dict],
+                    instance_results: OptInstanceList = None,
+                    num_classes: int = 80,
+                    score_per_cls: bool = False) -> List[InstanceData]:
+    """Handle predicted instances when RoI is empty.
+    Note: If ``instance_results`` is not None, it will be modified
+    in place internally, and then return ``instance_results``
+    Args:
+        batch_img_metas (list[dict]): List of image information.
+        device (torch.device): Device of tensor.
+        task_type (str): Expected returned task type. it currently
+            supports bbox and mask.
+        instance_results (list[:obj:`InstanceData`]): List of instance
+            results.
+        mask_thr_binary (int, float): mask binarization threshold.
+            Defaults to 0.
+        box_type (str or type): The empty box type. Defaults to `hbox`.
+        use_box_type (bool): Whether to warp boxes with the box type.
+            Defaults to False.
+        num_classes (int): num_classes of bbox_head. Defaults to 80.
+        score_per_cls (bool):  Whether to generate classwise score for
+            the empty instance. ``score_per_cls`` will be True when the model
+            needs to produce raw results without nms. Defaults to False.
+    Returns:
+        list[:obj:`InstanceData`]: Detection results of each image
+    """
+    if instance_results is not None:
+        assert len(instance_results) == len(batch_img_metas)
+
+    results_list = []
+    for img_id in range(len(batch_img_metas)):
+        if instance_results is not None:
+            results = instance_results[img_id]
+            assert isinstance(results, InstanceData)
+        else:
+            results = InstanceData()
+        results.bboxes = jt.zeros(0, 4)
+        score_shape = (0, num_classes + 1) if score_per_cls else (0, )
+        results.scores = jt.zeros(score_shape)
+        results.labels = jt.zeros((0, ), dtype=jt.int64)
+        results_list.append(results)
+    return results_list
