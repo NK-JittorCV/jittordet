@@ -1,5 +1,5 @@
 data_root: $DATA_ROOT:/data/coco/
-num_gpus: $NUM_GPUS:1
+num_gpus: $NUM_GPUS:8
 
 train_dataset:
   type: CocoDataset
@@ -44,7 +44,7 @@ val_dataset: &val_dataset
       scale: (1333, 800)
       keep_ratio: true
     - type: 'PackDetInputs'
-      meta_keys: [img_id, img_path, ori_shape, img_shape, 'scale_factor']
+      meta_keys: [img_id, img_path, ori_shape, img_shape, 'scale_factor', 'sample_idx']
 
 test_dataset: *val_dataset
 
