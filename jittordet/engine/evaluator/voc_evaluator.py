@@ -141,7 +141,7 @@ class VocEvaluator(BaseEvaluator):
                 dataset_name = 'voc07'
             else:
                 dataset_name = 'voc12'
-            class_names = dataset.metainfo['classes']
+            class_names = dataset.metainfo['CLASSES']
 
             mean_aps = []
             for iou_thr in self.iou_thrs:
