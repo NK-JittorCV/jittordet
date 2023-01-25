@@ -13,8 +13,9 @@ class PackDetInputs:
     }
 
     def __init__(self,
-                 meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                            'scale_factor', 'flip', 'flip_direction')):
+                 meta_keys=('sample_idx', 'img_id', 'img_path', 'ori_shape',
+                            'img_shape', 'scale_factor', 'flip',
+                            'flip_direction')):
         self.meta_keys = meta_keys
 
     def __call__(self, results):

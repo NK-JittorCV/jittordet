@@ -12,16 +12,15 @@ class TestLoop(BaseLoop):
         self.runner.call_hook('before_test')
         self.runner.call_hook('before_test_epoch')
         self.runner.model.eval()
+        self._iter = 0
 
-        results = []
         for idx, data_batch in enumerate(self.runner.test_dataset):
-            results.extend(self.run_iter(idx, data_batch))
-        if len(results) > self.runner.test_dataset.total_len:
-            results = results[:self.runner.test_dataset.total_len]
+            self.run_iter(idx, data_batch)
 
         # compute metrics
-        evaluator = self.runner.test_evaluator
-        metrics = evaluator.evaluate(self.runner.test_dataset, results)
+        metrics = self.runner.test_evaluator.evaluate(self.runner.test_dataset,
+                                                      self.runner.logger)
+
         self.runner.call_hook('after_test_epoch', metrics=metrics)
         self.runner.call_hook('after_test')
 
@@ -31,17 +30,11 @@ class TestLoop(BaseLoop):
             'before_test_iter', batch_idx=idx, data_batch=data_batch)
 
         outputs = self.runner.model(data_batch, phase='predict')
-        if jt.in_mpi:
-            all_rank_results = []
-            for i in range(jt.world_size):
-                rank_outputs = [o.mpi_broadcast(root=i) for o in outputs]
-                all_rank_results.extend(rank_outputs)
-            outputs = all_rank_results
+        self.runner.test_evaluator.process(self.runner.test_dataset, outputs)
 
         self.runner.call_hook(
             'after_test_iter',
             batch_idx=idx,
             data_batch=data_batch,
             outputs=outputs)
-
-        return outputs
+        self._iter += 1
