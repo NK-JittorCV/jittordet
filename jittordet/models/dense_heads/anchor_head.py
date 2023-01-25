@@ -103,7 +103,7 @@ class AnchorHead(BaseDenseHead):
 
     def init_weights(self):
         for m in self.modules():
-            if isinstance(m.nn.Conv2d):
+            if isinstance(m, nn.Conv2d):
                 normal_init(m, std=0.01)
 
     def execute_single(self, x: jt.Var) -> Tuple[jt.Var, jt.Var]:
