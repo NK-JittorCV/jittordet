@@ -1,0 +1,8 @@
+jittor > 1.3.6
+matplotlib
+numpy
+numpy
+opencv-python
+Pillow
+pycocotools
+terminaltables
