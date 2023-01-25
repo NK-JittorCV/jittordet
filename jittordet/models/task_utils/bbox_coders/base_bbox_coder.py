@@ -11,6 +11,8 @@ class BaseBBoxCoder(metaclass=ABCMeta):
         use_box_type (bool): Whether to warp decoded boxes with the
             box type data structure. Defaults to False.
     """
+    
+    encode_size = 4
 
     @abstractmethod
     def encode(self, bboxes, gt_bboxes):
