@@ -1,21 +1,22 @@
-# Modified from OpenMMLab. mmdet/evaluation/metrics/coco_metric.py
 # Copyright (c) OpenMMLab. All rights reserved.
+import copy
+import datetime
 import itertools
 import json
-import os
 import os.path as osp
-# import warnings
+import tempfile
 from collections import OrderedDict
-# from typing import List, Optional, Sequence, Union
-from typing import Optional
+from typing import Dict, List, Optional, Sequence, Union
 
 import numpy as np
-# from pycocotools.coco import COCO
+from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
 from terminaltables import AsciiTable
 
+from jittordet.structures import BaseDataElement
 from ..register import EVALUATORS
 from .base_evaluator import BaseEvaluator
+from .utils import eval_recalls
 
 
 @EVALUATORS.register_module()
@@ -25,6 +26,7 @@ class CocoEvaluator(BaseEvaluator):
     Evaluate AR, AP, and mAP for detection tasks including proposal/box
     detection and instance segmentation. Please refer to
     https://cocodataset.org/#detection-eval for more details.
+
     Args:
         ann_file (str, optional): Path to the coco format annotation file.
             If not specified, ground truth annotations from the dataset will
@@ -59,135 +61,140 @@ class CocoEvaluator(BaseEvaluator):
             If prefix is not provided in the argument, self.default_prefix
             will be used instead. Defaults to None.
     """
-    default_prefix: Optional[str] = 'coco'
 
-    # def __init__(self,
-    #              ann_file: Optional[str] = None,
-    #              metric: Union[str, List[str]] = 'bbox',
-    #              classwise: bool = False,
-    #              proposal_nums: Sequence[int] = (100, 300, 1000),
-    #              iou_thrs: Optional[Union[float, Sequence[float]]] = None,
-    #              metric_items: Optional[Sequence[str]] = None,
-    #              format_only: bool = False,
-    #              outfile_prefix: Optional[str] = None,
-    #              file_client_args: dict = dict(backend='disk'),
-    #              collect_device: str = 'cpu',
-    #              prefix: Optional[str] = None) -> None:
-    #     super().__init__(collect_device=collect_device, prefix=prefix)
-    #     # coco evaluation metrics
-    #     self.metrics = metric if isinstance(metric, list) else [metric]
-    #     allowed_metrics = ['bbox', 'segm', 'proposal', 'proposal_fast']
-    #     for metric in self.metrics:
-    #         if metric not in allowed_metrics:
-    #             raise KeyError(
-    #                 "metric should be one of 'bbox', 'segm', 'proposal', "
-    #                 f"'proposal_fast', but got {metric}.")
+    def __init__(self,
+                 ann_file: Optional[str] = None,
+                 metric: Union[str, List[str]] = 'bbox',
+                 classwise: bool = False,
+                 proposal_nums: Sequence[int] = (100, 300, 1000),
+                 iou_thrs: Optional[Union[float, Sequence[float]]] = None,
+                 metric_items: Optional[Sequence[str]] = None,
+                 format_only: bool = False,
+                 outfile_prefix: Optional[str] = None) -> None:
+        self.results = []
+        # coco evaluation metrics
+        self.metrics = metric if isinstance(metric, list) else [metric]
+        allowed_metrics = ['bbox', 'segm', 'proposal', 'proposal_fast']
+        for metric in self.metrics:
+            if metric not in allowed_metrics:
+                raise KeyError(
+                    "metric should be one of 'bbox', 'segm', 'proposal', "
+                    f"'proposal_fast', but got {metric}.")
 
-    #     # do class wise evaluation, default False
-    #     self.classwise = classwise
+        # do class wise evaluation, default False
+        self.classwise = classwise
 
-    #     # proposal_nums used to compute recall or precision.
-    #     self.proposal_nums = list(proposal_nums)
+        # proposal_nums used to compute recall or precision.
+        self.proposal_nums = list(proposal_nums)
 
-    #     # iou_thrs used to compute recall or precision.
-    #     if iou_thrs is None:
-    #         iou_thrs = np.linspace(
-    #             .5, 0.95, int(np.round((0.95 - .5) / .05)) + 1,
-    #               endpoint=True)
-    #     self.iou_thrs = iou_thrs
-    #     self.metric_items = metric_items
-    #     self.format_only = format_only
-    #     if self.format_only:
-    #         assert outfile_prefix is not None, 'outfile_prefix must be not'
-    #         'None when format_only is True, otherwise the result files will'
-    #         'be saved to a temp directory which will be cleaned up at the
-    # end.'
+        # iou_thrs used to compute recall or precision.
+        if iou_thrs is None:
+            iou_thrs = np.linspace(
+                .5, 0.95, int(np.round((0.95 - .5) / .05)) + 1, endpoint=True)
+        self.iou_thrs = iou_thrs
+        self.metric_items = metric_items
+        self.format_only = format_only
+        if self.format_only:
+            assert outfile_prefix is not None, 'outfile_prefix must be not'
+            'None when format_only is True, otherwise the result files will'
+            'be saved to a temp directory which will be cleaned up at the end.'
 
-    #     self.outfile_prefix = outfile_prefix
+        self.outfile_prefix = outfile_prefix
 
-    #     self.file_client_args = file_client_args
-    #     self.file_client = FileClient(**file_client_args)
+        # if ann_file is not specified,
+        # initialize coco api with the converted dataset
+        if ann_file is not None:
+            self._coco_api = COCO(ann_file)
+        else:
+            self._coco_api = None
 
-    #     # if ann_file is not specified,
-    #     # initialize coco api with the converted dataset
-    #     if ann_file is not None:
-    #         with self.file_client.get_local_path(ann_file) as local_path:
-    #             self._coco_api = COCO(local_path)
-    #     else:
-    #         self._coco_api = None
+        # handle dataset lazy init
+        self.cat_ids = None
+        self.img_ids = None
 
-    #     # handle dataset lazy init
-    #     self.cat_ids = None
-    #     self.img_ids = None
+    def fast_eval_recall(self,
+                         results: List[dict],
+                         proposal_nums: Sequence[int],
+                         iou_thrs: Sequence[float],
+                         logger=None) -> np.ndarray:
+        """Evaluate proposal recall with COCO's fast_eval_recall.
 
-    # def __init__(self,
-    #              ann_file: Optional[str] = None,
-    #              metric: Union[str, List[str]] = 'bbox',
-    #              classwise: bool = False,
-    #              proposal_nums: Sequence[int] = (100, 300, 1000),
-    #              iou_thrs: Optional[Union[float, Sequence[float]]] = None,
-    #              metric_items: Optional[Sequence[str]] = None,
-    #              format_only: bool = False,
-    #              outfile_prefix: Optional[str] = None) -> None:
-    #     pass
-    # super().__init__()
-    # # coco evaluation metrics
-    # self.metrics = metric if isinstance(metric, list) else [metric]
-    # allowed_metrics = ['bbox', 'proposal']
-    # for metric in self.metrics:
-    #     if metric not in allowed_metrics:
-    #         raise KeyError(
-    #             "metric should be one of 'bbox', 'segm', 'proposal', "
-    #             f"'proposal_fast', but got {metric}.")
+        Args:
+            results (List[dict]): Results of the dataset.
+            proposal_nums (Sequence[int]): Proposal numbers used for
+                evaluation.
+            iou_thrs (Sequence[float]): IoU thresholds used for evaluation.
+            logger (MMLogger, optional): Logger used for logging the recall
+                summary.
+        Returns:
+            np.ndarray: Averaged recall results.
+        """
+        gt_bboxes = []
+        pred_bboxes = [result['bboxes'] for result in results]
+        for i in range(len(self.img_ids)):
+            ann_ids = self._coco_api.get_ann_ids(img_ids=self.img_ids[i])
+            ann_info = self._coco_api.load_anns(ann_ids)
+            if len(ann_info) == 0:
+                gt_bboxes.append(np.zeros((0, 4)))
+                continue
+            bboxes = []
+            for ann in ann_info:
+                if ann.get('ignore', False) or ann['iscrowd']:
+                    continue
+                x1, y1, w, h = ann['bbox']
+                bboxes.append([x1, y1, x1 + w, y1 + h])
+            bboxes = np.array(bboxes, dtype=np.float32)
+            if bboxes.shape[0] == 0:
+                bboxes = np.zeros((0, 4))
+            gt_bboxes.append(bboxes)
 
-    # # do class wise evaluation, default False
-    # self.classwise = classwise
+        recalls = eval_recalls(
+            gt_bboxes, pred_bboxes, proposal_nums, iou_thrs, logger=logger)
+        ar = recalls.mean(axis=1)
+        return ar
 
-    # # proposal_nums used to compute recall or precision.
-    # self.proposal_nums = list(proposal_nums)
+    def xyxy2xywh(self, bbox: np.ndarray) -> list:
+        """Convert ``xyxy`` style bounding boxes to ``xywh`` style for COCO
+        evaluation.
 
-    # # iou_thrs used to compute recall or precision.
-    # self.iou_thrs = None
-    # if iou_thrs is None:
-    #     self.iou_thrs = np.linspace(
-    #         .5, 0.95, int(np.round((0.95 - .5) / .05)) + 1,
-    #         endpoint=True)
+        Args:
+            bbox (numpy.ndarray): The bounding boxes, shape (4, ), in
+                ``xyxy`` order.
 
-    # self.metric_items = metric_items
-    # self.format_only = format_only
-    # self.outfile_prefix = outfile_prefix
+        Returns:
+            list[float]: The converted bounding boxes, in ``xywh`` order.
+        """
 
-    # # if ann_file is not specified,
-    # # initialize coco api with the converted dataset
-    # if ann_file is not None:
-    #     self._coco_api = COCO(ann_file)
-    # else:
-    #     self._coco_api = None
+        _bbox: List = bbox.tolist()
+        return [
+            _bbox[0],
+            _bbox[1],
+            _bbox[2] - _bbox[0],
+            _bbox[3] - _bbox[1],
+        ]
 
-    # # handle dataset lazy init
-    # self.cat_ids = None
-    # self.img_ids = None
+    def results2json(self, results: Sequence[dict],
+                     outfile_prefix: str) -> dict:
+        """Dump the detection results to a COCO style json file.
 
-    def process_results(self, results):
-        preds = []
-        for result in results:
-            pred = dict()
-            result_ = result['pred_instances']
-            pred['img_id'] = result['img_id']
-            pred['bboxes'] = result_['bboxes'].cpu().numpy()
-            pred['scores'] = result_['scores'].cpu().numpy()
-            pred['labels'] = result_['labels'].cpu().numpy()
-            preds.append(pred)
-        return preds
+        There are 3 types of results: proposals, bbox predictions, mask
+        predictions, and they have different data types. This method will
+        automatically recognize the type, and dump them to json files.
 
-    def results2json(self, results, save_file):
-        """Convert detection results to COCO json style."""
+        Args:
+            results (Sequence[dict]): Testing results of the
+                dataset.
+            outfile_prefix (str): The filename prefix of the json files. If the
+                prefix is "somepath/xxx", the json files will be named
+                "somepath/xxx.bbox.json", "somepath/xxx.segm.json",
+                "somepath/xxx.proposal.json".
 
-        def xyxy2xywh(box):
-            x1, y1, x2, y2 = box.tolist()
-            return [x1, y1, x2 - x1, y2 - y1]
-
+        Returns:
+            dict: Possible keys are "bbox", "segm", "proposal", and
+            values are corresponding filenames.
+        """
         bbox_json_results = []
+        segm_json_results = [] if 'masks' in results[0] else None
         for idx, result in enumerate(results):
             image_id = result.get('img_id', idx)
             labels = result['labels']
@@ -197,59 +204,235 @@ class CocoEvaluator(BaseEvaluator):
             for i, label in enumerate(labels):
                 data = dict()
                 data['image_id'] = image_id
-                data['bbox'] = xyxy2xywh(bboxes[i])
+                data['bbox'] = self.xyxy2xywh(bboxes[i])
                 data['score'] = float(scores[i])
                 data['category_id'] = self.cat_ids[label]
                 bbox_json_results.append(data)
-        json.dump(bbox_json_results, save_file)
 
-    def build_file(self, epoch):
-        os.makedirs(self.outfile_prefix, exist_ok=True)
-        filename = 'val_{}.json'
-        return osp.join(self.outfile_prefix, filename.format(epoch))
+            if segm_json_results is None:
+                continue
 
-    def evaluate(self, dataset, results, work_dir, epoch, logger=None):
+            # segm results
+            masks = result['masks']
+            mask_scores = result.get('mask_scores', scores)
+            for i, label in enumerate(labels):
+                data = dict()
+                data['image_id'] = image_id
+                data['bbox'] = self.xyxy2xywh(bboxes[i])
+                data['score'] = float(mask_scores[i])
+                data['category_id'] = self.cat_ids[label]
+                if isinstance(masks[i]['counts'], bytes):
+                    masks[i]['counts'] = masks[i]['counts'].decode()
+                data['segmentation'] = masks[i]
+                segm_json_results.append(data)
 
-        # preprocess results
-        preds = self.process_results(results)
+        result_files = dict()
+        result_files['bbox'] = f'{outfile_prefix}.bbox.json'
+        result_files['proposal'] = f'{outfile_prefix}.bbox.json'
+        with open(result_files['bbox'], 'w') as f:
+            json.dump(bbox_json_results, f)
 
-        # build json file
+        if segm_json_results is not None:
+            result_files['segm'] = f'{outfile_prefix}.segm.json'
+            with open(result_files['segm'], 'w') as f:
+                json.dump(segm_json_results, f)
+
+        return result_files
+
+    def gt_to_coco_json(self, gt_dicts: Sequence[dict],
+                        outfile_prefix: str) -> str:
+        """Convert ground truth to coco format json file.
+
+        Args:
+            gt_dicts (Sequence[dict]): Ground truth of the dataset.
+            outfile_prefix (str): The filename prefix of the json files. If the
+                prefix is "somepath/xxx", the json file will be named
+                "somepath/xxx.gt.json".
+        Returns:
+            str: The filename of the json file.
+        """
+        categories = [
+            dict(id=id, name=name)
+            for id, name in enumerate(self.dataset_meta['CLASSES'])
+        ]
+        image_infos = []
+        annotations = []
+
+        for idx, gt_dict in enumerate(gt_dicts):
+            img_id = gt_dict.get('img_id', idx)
+            image_info = dict(
+                id=img_id,
+                width=gt_dict['width'],
+                height=gt_dict['height'],
+                file_name='')
+            image_infos.append(image_info)
+            for ann in gt_dict['anns']:
+                label = ann['bbox_label']
+                bbox = ann['bbox']
+                coco_bbox = [
+                    bbox[0],
+                    bbox[1],
+                    bbox[2] - bbox[0],
+                    bbox[3] - bbox[1],
+                ]
+
+                annotation = dict(
+                    id=len(annotations) +
+                    1,  # coco api requires id starts with 1
+                    image_id=img_id,
+                    bbox=coco_bbox,
+                    iscrowd=ann.get('ignore_flag', 0),
+                    category_id=int(label),
+                    area=coco_bbox[2] * coco_bbox[3])
+                if ann.get('mask', None):
+                    mask = ann['mask']
+                    # area = mask_util.area(mask)
+                    if isinstance(mask, dict) and isinstance(
+                            mask['counts'], bytes):
+                        mask['counts'] = mask['counts'].decode()
+                    annotation['segmentation'] = mask
+                    # annotation['area'] = float(area)
+                annotations.append(annotation)
+
+        info = dict(
+            date_created=str(datetime.datetime.now()),
+            description='Coco json file converted by mmdet CocoMetric.')
+        coco_json = dict(
+            info=info,
+            images=image_infos,
+            categories=categories,
+            licenses=None,
+        )
+        if len(annotations) > 0:
+            coco_json['annotations'] = annotations
+        converted_json_path = f'{outfile_prefix}.gt.json'
+        with open(converted_json_path, 'w') as f:
+            json.dump(coco_json, f)
+        return converted_json_path
+
+    def process(self, dataset, data_samples: Sequence[dict]) -> None:
+        """Process one batch of data samples and predictions. The processed
+        results should be stored in ``self.results``, which will be used to
+        compute the metrics when all batches have been processed.
+
+        Args:
+            data_batch (dict): A batch of data from the dataloader.
+            data_samples (Sequence[dict]): A batch of data samples that
+                contain annotations and predictions.
+        """
+        for data_sample in data_samples:
+            if isinstance(data_sample, BaseDataElement):
+                data_sample = data_sample.to_dict()
+
+            result = dict()
+            pred = data_sample['pred_instances']
+            result['img_id'] = data_sample['img_id']
+            result['bboxes'] = pred['bboxes'].numpy()
+            result['scores'] = pred['scores'].numpy()
+            result['labels'] = pred['labels'].numpy()
+            # TODO: enable instance segmentation function.
+            # encode mask to RLE
+            # if 'masks' in pred:
+            #     result['masks'] = encode_mask_results(
+            #         pred['masks'].detach().cpu().numpy())
+            # some detectors use different scores for bbox and mask
+            if 'mask_scores' in pred:
+                result['mask_scores'] = pred['mask_scores'].cpu().numpy()
+
+            # parse gt
+            if self._coco_api is None:
+                sample_idx = data_samples.meta_infos['sample_idx']
+                gt = copy.deepcopy(dataset.data_infos[sample_idx])
+            else:
+                gt = None
+            # add converted result to the results list
+            self.results.append((gt, result))
+
+    def compute_metrics(self, dataset, results: list,
+                        logger) -> Dict[str, float]:
+        """Compute the metrics from processed results.
+
+        Args:
+            results (list): The processed results of each batch.
+
+        Returns:
+            Dict[str, float]: The computed metrics. The keys are the names of
+            the metrics, and the values are corresponding results.
+        """
+        # split gt and prediction list
+        gts, preds = zip(*results)
+
+        tmp_dir = None
         if self.outfile_prefix is None:
-            self.outfile_prefix = osp.join(work_dir, prefix='detections')
-        save_file = self.build_file(epoch)
+            tmp_dir = tempfile.TemporaryDirectory()
+            outfile_prefix = osp.join(tmp_dir.name, 'results')
+        else:
+            outfile_prefix = self.outfile_prefix
+
+        if self._coco_api is None:
+            # use converted gt json file to initialize coco api
+            logger.info('Converting ground truth to coco format...')
+            coco_json_path = self.gt_to_coco_json(
+                gt_dicts=gts, outfile_prefix=outfile_prefix)
+            self._coco_api = COCO(coco_json_path)
+
+        # handle lazy init
+        if self.cat_ids is None:
+            self.cat_ids = self._coco_api.getCatIds(
+                catNms=dataset.metainfo['classes'])
+        if self.img_ids is None:
+            self.img_ids = self._coco_api.getImgIds()
 
         # convert predictions to coco format and dump to json file
-        self.results2json(preds, save_file)
+        result_files = self.results2json(preds, outfile_prefix)
 
         eval_results = OrderedDict()
         if self.format_only:
-            if logger is not None:
-                logger.info('results are saved in '
-                            f'{osp.dirname(self.outfile_prefix)}')
+            logger.info('results are saved in '
+                        f'{osp.dirname(outfile_prefix)}')
             return eval_results
 
-        # handle lazy init
-        if self._coco_api is None:
-            self._coco_api = dataset.coco
-        if self.cat_ids is None:
-            self.cat_ids = self._coco_api.get_cat_ids(
-                cat_names=dataset.metainfo.get('classes'))
-        if self.img_ids is None:
-            self.img_ids = self._coco_api.get_img_ids()
-
         for metric in self.metrics:
-            if logger is not None:
-                logger.info(f'Evaluating {metric}...')
+            logger.info(f'Evaluating {metric}...')
+
+            # TODO: May refactor fast_eval_recall to an independent metric?
+            # fast eval recall
+            if metric == 'proposal_fast':
+                ar = self.fast_eval_recall(
+                    preds, self.proposal_nums, self.iou_thrs, logger=logger)
+                log_msg = []
+                for i, num in enumerate(self.proposal_nums):
+                    eval_results[f'AR@{num}'] = ar[i]
+                    log_msg.append(f'\nAR@{num}\t{ar[i]:.4f}')
+                log_msg = ''.join(log_msg)
+                logger.info(log_msg)
+                continue
+
+            # evaluate proposal, bbox and segm
             iou_type = 'bbox' if metric == 'proposal' else metric
+            if metric not in result_files:
+                raise KeyError(f'{metric} is not in results')
             try:
-                predictions = json.load(open(save_file))
+                with open(result_files[metric], 'r') as f:
+                    predictions = json.load(f)
+                if iou_type == 'segm':
+                    # Refer to https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocotools/coco.py#L331  # noqa
+                    # When evaluating mask AP, if the results contain bbox,
+                    # cocoapi will use the box area instead of the mask area
+                    # for calculating the instance area. Though the overall AP
+                    # is not affected, this leads to different
+                    # small/medium/large mask AP results.
+                    for x in predictions:
+                        x.pop('bbox')
                 coco_dt = self._coco_api.loadRes(predictions)
+
             except IndexError:
-                if logger is not None:
-                    logger.error(
-                        'The testing results of the whole dataset is empty.')
+                logger.error(
+                    'The testing results of the whole dataset is empty.')
                 break
+
             coco_eval = COCOeval(self._coco_api, coco_dt, iou_type)
+
             coco_eval.params.catIds = self.cat_ids
             coco_eval.params.imgIds = self.img_ids
             coco_eval.params.maxDets = list(self.proposal_nums)
@@ -329,8 +512,7 @@ class CocoEvaluator(BaseEvaluator):
                     table_data = [headers]
                     table_data += [result for result in results_2d]
                     table = AsciiTable(table_data)
-                    if logger is not None:
-                        logger.info('\n' + table.table)
+                    logger.info('\n' + table.table)
 
                 if metric_items is None:
                     metric_items = [
@@ -343,8 +525,10 @@ class CocoEvaluator(BaseEvaluator):
                     eval_results[key] = float(f'{round(val, 3)}')
 
                 ap = coco_eval.stats[:6]
-                if logger is not None:
-                    logger.info(f'{metric}_mAP_copypaste: {ap[0]:.3f} '
-                                f'{ap[1]:.3f} {ap[2]:.3f} {ap[3]:.3f} '
-                                f'{ap[4]:.3f} {ap[5]:.3f}')
+                # logger.info(f'{metric}_mAP_copypaste: {ap[0]:.3f} '
+                #             f'{ap[1]:.3f} {ap[2]:.3f} {ap[3]:.3f} '
+                #             f'{ap[4]:.3f} {ap[5]:.3f}')
+
+        if tmp_dir is not None:
+            tmp_dir.cleanup()
         return eval_results

@@ -12,16 +12,15 @@ class ValLoop(BaseLoop):
         self.runner.call_hook('before_val')
         self.runner.call_hook('before_val_epoch')
         self.runner.model.eval()
+        self._iter = 0
 
-        results = []
         for idx, data_batch in enumerate(self.runner.val_dataset):
-            results.extend(self.run_iter(idx, data_batch))
-        if len(results) > self.runner.val_dataset.total_len:
-            results = results[:self.runner.val_dataset.total_len]
+            self.run_iter(idx, data_batch)
 
         # compute metrics
-        evaluator = self.runner.val_evaluator
-        metrics = evaluator.evaluate(self.runner.val_dataset, results)
+        metrics = self.runner.val_evaluator.evaluate(self.runner.val_dataset,
+                                                     self.runner.logger)
+
         self.runner.call_hook('after_val_epoch', metrics=metrics)
         self.runner.call_hook('after_val')
 
@@ -31,17 +30,11 @@ class ValLoop(BaseLoop):
             'before_val_iter', batch_idx=idx, data_batch=data_batch)
 
         outputs = self.runner.model(data_batch, phase='predict')
-        if jt.in_mpi:
-            all_rank_results = []
-            for i in range(jt.world_size):
-                rank_outputs = [o.mpi_broadcast(root=i) for o in outputs]
-                all_rank_results.extend(rank_outputs)
-            outputs = all_rank_results
+        self.runner.val_evaluator.process(self.runner.val_dataset, outputs)
 
         self.runner.call_hook(
             'after_val_iter',
             batch_idx=idx,
             data_batch=data_batch,
             outputs=outputs)
-
-        return outputs
+        self._iter += 1
