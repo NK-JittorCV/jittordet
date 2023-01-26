@@ -60,6 +60,7 @@ class AspectRatioBatchSampler(BaseBatchSampler):
         index = index[shuffle_idx]
 
         real_bs_num = self.batch_len * world_size
+        repeat_num = (real_bs_num - 1) // index.shape[0] + 1
         repeat_num = (index.shape[0] - 1) // real_bs_num + 1
         index = np.concatenate([index] * repeat_num, axis=0)
         index = index[:real_bs_num]
