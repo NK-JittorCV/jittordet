@@ -9,6 +9,7 @@ import jittor.nn as nn
 from jittordet.engine import MODELS, OptConfigType, OptMultiConfig
 from jittordet.structures import InstanceList, SampleList
 
+
 class BaseRoIHead(nn.Module, metaclass=ABCMeta):
     """Base class for RoIHeads."""
 

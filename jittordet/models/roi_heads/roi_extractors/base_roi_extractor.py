@@ -1,17 +1,19 @@
-# Modified from OpenMMLab mmdet/models/roi_heads/roi_extractors/base_roi_extractor.py
+# Modified from OpenMMLab.
+# mmdet/models/roi_heads/roi_extractors/base_roi_extractor.py
 # Copyright (c) OpenMMLab. All rights reserved.
 from abc import ABCMeta, abstractmethod
 from typing import List, Optional, Tuple
 
 import jittor as jt
 import jittor.nn as nn
-from jittordet import ops
 
+from jittordet import ops
 from jittordet.engine import ConfigType
 
 
 class BaseRoIExtractor(nn.Module, metaclass=ABCMeta):
     """Base class for RoI extractor.
+
     Args:
         roi_layer (:obj:`ConfigDict` or dict): Specify RoI layer type and
             arguments.
@@ -21,9 +23,7 @@ class BaseRoIExtractor(nn.Module, metaclass=ABCMeta):
             dict], optional): Initialization config dict. Defaults to None.
     """
 
-    def __init__(self,
-                 roi_layer: ConfigType,
-                 out_channels: int,
+    def __init__(self, roi_layer: ConfigType, out_channels: int,
                  featmap_strides: List[int]) -> None:
         super().__init__()
         self.roi_layers = self.build_roi_layers(roi_layer, featmap_strides)
@@ -35,10 +35,10 @@ class BaseRoIExtractor(nn.Module, metaclass=ABCMeta):
         """int: Number of input feature maps."""
         return len(self.featmap_strides)
 
-    def build_roi_layers(self, 
-                         layer_cfg: ConfigType,
+    def build_roi_layers(self, layer_cfg: ConfigType,
                          featmap_strides: List[int]) -> nn.ModuleList:
         """Build RoI operator to extract feature from each level feature map.
+
         Args:
             layer_cfg (:obj:`ConfigDict` or dict): Dictionary to construct and
                 config RoI layer operation. Options are modules under
@@ -56,11 +56,13 @@ class BaseRoIExtractor(nn.Module, metaclass=ABCMeta):
         layer_type = cfg.pop('type')
         assert hasattr(ops, layer_type)
         layer_cls = getattr(ops, layer_type)
-        roi_layers = nn.ModuleList([layer_cls(spatial_scale=1 / s, **cfg) for s in featmap_strides])
+        roi_layers = nn.ModuleList(
+            [layer_cls(spatial_scale=1 / s, **cfg) for s in featmap_strides])
         return roi_layers
 
     def roi_rescale(self, rois: jt.Var, scale_factor: float) -> jt.Var:
         """Scale RoI coordinates by scale factor.
+
         Args:
             rois (Tensor): RoI (Region of Interest), shape (n, 5)
             scale_factor (float): Scale factor that RoI will be multiplied by.
@@ -87,6 +89,7 @@ class BaseRoIExtractor(nn.Module, metaclass=ABCMeta):
                 rois: jt.Var,
                 roi_scale_factor: Optional[float] = None) -> jt.Var:
         """Extractor ROI feats.
+
         Args:
             feats (Tuple[Tensor]): Multi-scale features.
             rois (Tensor): RoIs with the shape (n, 5) where the first

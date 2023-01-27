@@ -121,7 +121,10 @@ class BaseDetDataset(Dataset):
                     v = osp.join(self.data_root, v)
             elif isinstance(v, list):
                 if ('path' in k or 'file' in k):
-                    v =  [osp.join(self.data_root, i) for i in v if not osp.isabs(i)]
+                    v = [
+                        osp.join(self.data_root, i) for i in v
+                        if not osp.isabs(i)
+                    ]
             else:
                 raise NotImplementedError
             setattr(self, k, v)

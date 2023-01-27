@@ -122,4 +122,3 @@ model:
       nms:
         type: nms
         thresh: 0.5
-      

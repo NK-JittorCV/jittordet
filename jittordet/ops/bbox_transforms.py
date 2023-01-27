@@ -1,11 +1,11 @@
 import copy  # TODO: remove copy(?)
 import math
+from typing import Tuple
 
 import cv2
 import jittor as jt
 import numpy as np  # TODO: remove numpy
 
-from typing import Tuple
 
 def dbbox2delta_v3(proposals, gt, means=[0, 0, 0, 0, 0], stds=[1, 1, 1, 1, 1]):
     proposals = proposals.float()
@@ -753,8 +753,7 @@ def get_bbox_areas(bboxes):
     return areas
 
 
-def scale_boxes(boxes: jt.Var,
-                scale_factor: Tuple[float, float]) -> jt.Var:
+def scale_boxes(boxes: jt.Var, scale_factor: Tuple[float, float]) -> jt.Var:
     repeat_num = int(boxes.size(-1) / 2)
     scale_factor = jt.Var(scale_factor).repeat((1, repeat_num))
     return boxes * scale_factor

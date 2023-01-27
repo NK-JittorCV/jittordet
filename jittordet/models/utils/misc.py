@@ -1,11 +1,11 @@
 # Modified from OpenMMLab. mmdet/models/utils/misc.py
 # Copyright (c) OpenMMLab. All rights reserved.
 from functools import partial
-from typing import List, Union
+from typing import List
 
 import jittor as jt
 
-from jittordet.structures import SampleList, OptInstanceList, InstanceData
+from jittordet.structures import InstanceData, OptInstanceList, SampleList
 
 
 def unpack_gt_instances(batch_data_samples: SampleList) -> tuple:
@@ -174,12 +174,12 @@ def images_to_levels(target, num_levels):
     return level_targets
 
 
-
 def empty_instances(batch_img_metas: List[dict],
                     instance_results: OptInstanceList = None,
                     num_classes: int = 80,
                     score_per_cls: bool = False) -> List[InstanceData]:
     """Handle predicted instances when RoI is empty.
+
     Note: If ``instance_results`` is not None, it will be modified
     in place internally, and then return ``instance_results``
     Args:

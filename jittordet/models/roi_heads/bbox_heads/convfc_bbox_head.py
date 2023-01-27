@@ -7,8 +7,8 @@ import jittor.nn as nn
 from jittordet.engine import MODELS, ConfigDict
 from jittordet.models.layers import ConvModule
 from jittordet.models.utils import xavier_init
-
 from .bbox_head import BBoxHead
+
 
 @MODELS.register_module()
 class ConvFCBBoxHead(BBoxHead):
@@ -96,21 +96,21 @@ class ConvFCBBoxHead(BBoxHead):
                 in_features=self.reg_last_dim, out_features=out_dim_reg)
             self.fc_reg = MODELS.build(reg_predictor_cfg_)
 
-
     def init_weights(self):
         super().init_weights()
         for name, m in self.named_parameters():
             if isinstance(m, nn.Conv2d):
-                if name in ["shared_fcs", "cls_fcs", "reg_fcs"]:
+                if name in ['shared_fcs', 'cls_fcs', 'reg_fcs']:
                     print(name)
                     xavier_init(m, distribution='uniform')
-    
+
     def _add_conv_fc_branch(self,
                             num_branch_convs: int,
                             num_branch_fcs: int,
                             in_channels: int,
                             is_shared: bool = False) -> tuple:
         """Add shared or separable branch.
+
         convs -> avg pool (optional) -> fcs
         """
         last_layer_dim = in_channels

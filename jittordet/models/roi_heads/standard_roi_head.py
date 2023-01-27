@@ -5,8 +5,8 @@ from typing import List, Tuple
 import jittor as jt
 
 from jittordet.engine import MODELS, TASK_UTILS, ConfigType
-from jittordet.structures import DetDataSample, InstanceList
 from jittordet.ops.bbox_transforms import bbox2roi
+from jittordet.structures import DetDataSample, InstanceList
 from ..task_utils.samplers.sampling_result import SamplingResult
 from ..utils import empty_instances, unpack_gt_instances
 from .base_roi_head import BaseRoIHead
@@ -22,13 +22,13 @@ class StandardRoIHead(BaseRoIHead):
         self.bbox_sampler = None
         if self.train_cfg:
             self.bbox_assigner = TASK_UTILS.build(self.train_cfg.assigner)
-            self.bbox_sampler = TASK_UTILS.build(self.train_cfg.sampler, 
-                                                 default_args=dict(context=self))
+            self.bbox_sampler = TASK_UTILS.build(
+                self.train_cfg.sampler, default_args=dict(context=self))
 
-    def init_bbox_head(self, 
-                       bbox_roi_extractor: ConfigType,
+    def init_bbox_head(self, bbox_roi_extractor: ConfigType,
                        bbox_head: ConfigType) -> None:
         """Initialize box head and box roi extractor.
+
         Args:
             bbox_roi_extractor (dict or ConfigDict): Config of box
                 roi extractor.
@@ -40,7 +40,9 @@ class StandardRoIHead(BaseRoIHead):
     # TODO: Need to refactor later
     def execute(self, x: Tuple[jt.Var],
                 rpn_results_list: InstanceList) -> tuple:
-        """Network forward process. Usually includes backbone, neck and head
+        """Network forward process.
+
+        Usually includes backbone, neck and head
         forward without any post-processing.
         Args:
             x (List[Tensor]): Multi-level features that may have different
@@ -61,12 +63,11 @@ class StandardRoIHead(BaseRoIHead):
                                  bbox_results['bbox_pred'])
         return results
 
-    def loss(self, 
-             x: Tuple[jt.Var], 
-             rpn_results_list: InstanceList,
+    def loss(self, x: Tuple[jt.Var], rpn_results_list: InstanceList,
              batch_data_samples: List[DetDataSample]) -> dict:
         """Perform forward propagation and loss calculation of the detection
         roi on the features of the upstream network.
+
         Args:
             x (tuple[Tensor]): List of multi-level img features.
             rpn_results_list (list[:obj:`InstanceData`]): List of region
@@ -79,7 +80,8 @@ class StandardRoIHead(BaseRoIHead):
         """
         assert len(rpn_results_list) == len(batch_data_samples)
         outputs = unpack_gt_instances(batch_data_samples)
-        (batch_gt_instances,batch_img_metas, batch_gt_instances_ignore) = outputs
+        (batch_gt_instances, batch_img_metas,
+         batch_gt_instances_ignore) = outputs
 
         # assign gts and sample proposals
         num_imgs = len(batch_data_samples)
@@ -125,9 +127,8 @@ class StandardRoIHead(BaseRoIHead):
             bbox_feats = self.shared_head(bbox_feats)
         cls_score, bbox_pred = self.bbox_head(bbox_feats)
 
-        bbox_results = dict(cls_score=cls_score, 
-                            bbox_pred=bbox_pred, 
-                            bbox_feats=bbox_feats)
+        bbox_results = dict(
+            cls_score=cls_score, bbox_pred=bbox_pred, bbox_feats=bbox_feats)
         return bbox_results
 
     def bbox_loss(self, x: Tuple[jt.Var],
@@ -147,11 +148,12 @@ class StandardRoIHead(BaseRoIHead):
         rois = bbox2roi([res.priors for res in sampling_results])
         bbox_results = self._bbox_execute(x, rois)
 
-        bbox_loss_and_target = self.bbox_head.loss_and_target(cls_score=bbox_results['cls_score'],
-                                                              bbox_pred=bbox_results['bbox_pred'],
-                                                              rois=rois,
-                                                              sampling_results=sampling_results,
-                                                              rcnn_train_cfg=self.train_cfg)
+        bbox_loss_and_target = self.bbox_head.loss_and_target(
+            cls_score=bbox_results['cls_score'],
+            bbox_pred=bbox_results['bbox_pred'],
+            rois=rois,
+            sampling_results=sampling_results,
+            rcnn_train_cfg=self.train_cfg)
         bbox_results.update(loss_bbox=bbox_loss_and_target['loss_bbox'])
         return bbox_results
 
@@ -186,9 +188,10 @@ class StandardRoIHead(BaseRoIHead):
         rois = bbox2roi(proposals)
 
         if rois.shape[0] == 0:
-            return empty_instances(batch_img_metas,
-                                   num_classes=self.bbox_head.num_classes,
-                                   score_per_cls=rcnn_test_cfg is None)
+            return empty_instances(
+                batch_img_metas,
+                num_classes=self.bbox_head.num_classes,
+                score_per_cls=rcnn_test_cfg is None)
 
         bbox_results = self._bbox_execute(x, rois)
 
@@ -206,15 +209,16 @@ class StandardRoIHead(BaseRoIHead):
             if isinstance(bbox_preds, jt.Var):
                 bbox_preds = bbox_preds.split(num_proposals_per_img, 0)
             else:
-                bbox_preds = self.bbox_head.bbox_pred_split(bbox_preds, 
-                                                            num_proposals_per_img)
+                bbox_preds = self.bbox_head.bbox_pred_split(
+                    bbox_preds, num_proposals_per_img)
         else:
             bbox_preds = (None, ) * len(proposals)
 
-        result_list = self.bbox_head.predict_by_feat(rois=rois,
-                                                     cls_scores=cls_scores,
-                                                     bbox_preds=bbox_preds,
-                                                     batch_img_metas=batch_img_metas,
-                                                     rcnn_test_cfg=rcnn_test_cfg,
-                                                     rescale=rescale)
+        result_list = self.bbox_head.predict_by_feat(
+            rois=rois,
+            cls_scores=cls_scores,
+            bbox_preds=bbox_preds,
+            batch_img_metas=batch_img_metas,
+            rcnn_test_cfg=rcnn_test_cfg,
+            rescale=rescale)
         return result_list

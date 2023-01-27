@@ -1,4 +1,5 @@
-# Modified from OpenMMLab mmdet/models/roi_heads/roi_extractors/single_level_roi_extractor.py
+# Modified from OpenMMLab.
+# mmdet/models/roi_heads/roi_extractors/single_level_roi_extractor.py
 # Copyright (c) OpenMMLab. All rights reserved.
 from typing import List, Optional, Tuple
 
@@ -11,6 +12,7 @@ from .base_roi_extractor import BaseRoIExtractor
 @MODELS.register_module()
 class SingleRoIExtractor(BaseRoIExtractor):
     """Extract RoI features from a single level feature map.
+
     If there are multiple input feature levels, each RoI is mapped to a level
     according to its scale. The mapping rule is proposed in
     `FPN <https://arxiv.org/abs/1612.03144>`_.
@@ -38,6 +40,7 @@ class SingleRoIExtractor(BaseRoIExtractor):
 
     def map_roi_levels(self, rois: jt.Var, num_levels: int) -> jt.Var:
         """Map rois to corresponding feature levels by scales.
+
         - scale < finest_scale * 2: level 0
         - finest_scale * 2 <= scale < finest_scale * 4: level 1
         - finest_scale * 4 <= scale < finest_scale * 8: level 2
@@ -50,7 +53,8 @@ class SingleRoIExtractor(BaseRoIExtractor):
         """
         scale = jt.sqrt((rois[:, 3] - rois[:, 1]) * (rois[:, 4] - rois[:, 2]))
         target_lvls = jt.floor(jt.log2(scale / self.finest_scale + 1e-6))
-        target_lvls = target_lvls.clamp(min_v=0, max_v=num_levels - 1).to(jt.int64)
+        target_lvls = target_lvls.clamp(
+            min_v=0, max_v=num_levels - 1).to(jt.int64)
         return target_lvls
 
     def execute(self,
@@ -58,6 +62,7 @@ class SingleRoIExtractor(BaseRoIExtractor):
                 rois: jt.Var,
                 roi_scale_factor: Optional[float] = None):
         """Extractor ROI feats.
+
         Args:
             feats (Tuple[Tensor]): Multi-scale features.
             rois (Tensor): RoIs with the shape (n, 5) where the first

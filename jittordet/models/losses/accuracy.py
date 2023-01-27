@@ -42,7 +42,7 @@ def accuracy(pred, target, topk=1, thresh=None):
         f'maxk {maxk} exceeds pred dimension {pred.size(1)}'
     pred_value, pred_label = pred.topk(maxk, dim=1)
     pred_label = pred_label.t()  # transpose to shape (maxk, N)
-    
+
     correct = jt.equal(pred_label, target.view(1, -1).expand_as(pred_label))
     if thresh is not None:
         # Only prediction values larger than thresh are counted as correct

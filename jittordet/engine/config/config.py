@@ -1,7 +1,7 @@
 import os
 import os.path as osp
 from collections.abc import Mapping
-from typing import Optional, Union, List
+from typing import List, Optional, Union
 
 from addict import Dict
 

@@ -110,7 +110,8 @@ class BaseDenseHead(nn.Module, metaclass=ABCMeta):
                   results of each image after the post process.
         """
         outputs = unpack_gt_instances(batch_data_samples)
-        (batch_gt_instances,batch_img_metas, batch_gt_instances_ignore) = outputs
+        (batch_gt_instances, batch_img_metas,
+         batch_gt_instances_ignore) = outputs
 
         outs = self(x)
 

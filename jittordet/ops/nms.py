@@ -35,7 +35,7 @@ def multiclass_nms(mlvl_bboxes, mlvl_scores, score_thr, nms, max_per_img):
     else:
         mlvl_bboxes = mlvl_bboxes.unsqueeze(1)
         mlvl_bboxes = mlvl_bboxes.expand((mlvl_bboxes.size(0), n_class, 4))
-    for j in range(0, n_class-1):
+    for j in range(0, n_class - 1):
         bbox_j = mlvl_bboxes[:, j, :]
         score_j = mlvl_scores[:, j:j + 1]
         mask = jt.where(score_j > score_thr)[0]

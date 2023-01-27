@@ -7,5 +7,6 @@ from .utils import reduce_loss, weight_reduce_loss, weighted_loss
 
 __all__ = [
     'reduce_loss', 'weight_reduce_loss', 'weighted_loss', 'CrossEntropyLoss',
-    'Accuracy', 'accuracy', 'FocalLoss', 'IoULoss', 'GIoULoss', 'SmoothL1Loss', 'L1Loss'
+    'Accuracy', 'accuracy', 'FocalLoss', 'IoULoss', 'GIoULoss', 'SmoothL1Loss',
+    'L1Loss'
 ]

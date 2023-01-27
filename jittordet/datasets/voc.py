@@ -45,7 +45,7 @@ class VocDataset(BaseDetDataset):
                 img_id = img_id.strip()
                 file_name = osp.join(img_path, 'JPEGImages', f'{img_id}.jpg')
                 xml_path = osp.join(img_path, 'Annotations', f'{img_id}.xml')
-                
+
                 raw_img_info = {}
                 raw_img_info['img_id'] = img_id
                 raw_img_info['img_path'] = file_name

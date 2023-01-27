@@ -5,13 +5,12 @@ import jittor as jt
 import jittor.nn as nn
 
 from jittordet.engine import MODELS, TASK_UTILS, ConfigDict, ConfigType
-from jittordet.structures import InstanceData, InstanceList
 from jittordet.models.losses import accuracy
-from jittordet.ops.nms import multiclass_nms
-
 from jittordet.models.task_utils.samplers.sampling_result import SamplingResult
 from jittordet.models.utils import empty_instances, multi_apply, normal_init
 from jittordet.ops.bbox_transforms import scale_boxes
+from jittordet.ops.nms import multiclass_nms
+from jittordet.structures import InstanceData, InstanceList
 
 
 @MODELS.register_module()
@@ -19,29 +18,29 @@ class BBoxHead(nn.Module):
     """Simplest RoI head, with only two fc layers for classification and
     regression respectively."""
 
-    def __init__(self,
-                 with_avg_pool: bool = False,
-                 with_cls: bool = True,
-                 with_reg: bool = True,
-                 roi_feat_size: int = 7,
-                 in_channels: int = 256,
-                 num_classes: int = 80,
-                 bbox_coder: ConfigType = dict(
-                     type='DeltaXYWHBBoxCoder',
-                     clip_border=True,
-                     target_means=[0., 0., 0., 0.],
-                     target_stds=[0.1, 0.1, 0.2, 0.2]),
-                 predict_box_type: str = 'hbox',
-                 reg_class_agnostic: bool = False,
-                 reg_decoded_bbox: bool = False,
-                 reg_predictor_cfg: ConfigType = dict(type='Linear'),
-                 cls_predictor_cfg: ConfigType = dict(type='Linear'),
-                 loss_cls: ConfigType = dict(
-                     type='CrossEntropyLoss',
-                     use_sigmoid=False,
-                     loss_weight=1.0),
-                 loss_bbox: ConfigType = dict(
-                     type='SmoothL1Loss', beta=1.0, loss_weight=1.0)) -> None:
+    def __init__(
+        self,
+        with_avg_pool: bool = False,
+        with_cls: bool = True,
+        with_reg: bool = True,
+        roi_feat_size: int = 7,
+        in_channels: int = 256,
+        num_classes: int = 80,
+        bbox_coder: ConfigType = dict(
+            type='DeltaXYWHBBoxCoder',
+            clip_border=True,
+            target_means=[0., 0., 0., 0.],
+            target_stds=[0.1, 0.1, 0.2, 0.2]),
+        predict_box_type: str = 'hbox',
+        reg_class_agnostic: bool = False,
+        reg_decoded_bbox: bool = False,
+        reg_predictor_cfg: ConfigType = dict(type='Linear'),
+        cls_predictor_cfg: ConfigType = dict(type='Linear'),
+        loss_cls: ConfigType = dict(
+            type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0),
+        loss_bbox: ConfigType = dict(
+            type='SmoothL1Loss', beta=1.0, loss_weight=1.0)
+    ) -> None:
         super().__init__()
         assert with_cls or with_reg
         self.with_avg_pool = with_avg_pool
@@ -73,8 +72,8 @@ class BBoxHead(nn.Module):
             else:
                 cls_channels = num_classes + 1
             cls_predictor_cfg_ = self.cls_predictor_cfg.copy()
-            cls_predictor_cfg_.update(in_features=in_channels, 
-                                      out_features=cls_channels)
+            cls_predictor_cfg_.update(
+                in_features=in_channels, out_features=cls_channels)
             self.fc_cls = MODELS.build(cls_predictor_cfg_)
         if self.with_reg:
             box_dim = self.bbox_coder.encode_size
@@ -85,19 +84,19 @@ class BBoxHead(nn.Module):
                 in_features=in_channels, out_features=out_dim_reg)
             self.fc_reg = MODELS.build(reg_predictor_cfg_)
         self.debug_imgs = None
-    
+
     def init_weights(self):
         for name, m in self.named_parameters():
             if isinstance(m, nn.Conv2d):
-                if name == "fc_cls":
+                if name == 'fc_cls':
                     print(name)
                     if self.with_cls:
                         normal_init(m, std=0.01)
-                if name == "fc_reg":
+                if name == 'fc_reg':
                     print(name)
                     if self.with_reg:
                         normal_init(m, std=0.001)
-    
+
     # TODO: Create a SeasawBBoxHead to simplified logic in BBoxHead
     @property
     def custom_cls_channels(self) -> bool:
@@ -142,11 +141,8 @@ class BBoxHead(nn.Module):
         bbox_pred = self.fc_reg(x) if self.with_reg else None
         return cls_score, bbox_pred
 
-    def _get_targets_single(self, 
-                            pos_priors: jt.Var, 
-                            neg_priors: jt.Var,
-                            pos_gt_bboxes: jt.Var, 
-                            pos_gt_labels: jt.Var,
+    def _get_targets_single(self, pos_priors: jt.Var, neg_priors: jt.Var,
+                            pos_gt_bboxes: jt.Var, pos_gt_labels: jt.Var,
                             cfg: ConfigDict) -> tuple:
         """Calculate the ground truth for proposals in the single image
         according to the sampling results.
@@ -195,8 +191,8 @@ class BBoxHead(nn.Module):
             pos_weight = 1.0 if cfg.pos_weight <= 0 else cfg.pos_weight
             label_weights[:num_pos] = pos_weight
             if not self.reg_decoded_bbox:
-                pos_bbox_targets = self.bbox_coder.encode(pos_priors,
-                                                          pos_gt_bboxes)
+                pos_bbox_targets = self.bbox_coder.encode(
+                    pos_priors, pos_gt_bboxes)
             else:
                 # When the regression loss (e.g. `IouLoss`, `GIouLoss`)
                 # is applied directly on the decoded bounding boxes, both
@@ -383,13 +379,12 @@ class BBoxHead(nn.Module):
                     # already encoded coordinates to absolute format.
                     bbox_pred = self.bbox_coder.decode(rois[:, 1:], bbox_pred)
                 if self.reg_class_agnostic:
-                    pos_bbox_pred = bbox_pred.view(
-                        bbox_pred.size(0), -1)[pos_inds.to(bool)]
+                    pos_bbox_pred = bbox_pred.view(bbox_pred.size(0),
+                                                   -1)[pos_inds.to(bool)]
                 else:
                     pos_bbox_pred = bbox_pred.view(
                         bbox_pred.size(0), self.num_classes,
-                        -1)[pos_inds.to(bool),
-                            labels[pos_inds.to(bool)]]
+                        -1)[pos_inds.to(bool), labels[pos_inds.to(bool)]]
                 losses['loss_bbox'] = self.loss_bbox(
                     pos_bbox_pred,
                     bbox_targets[pos_inds.to(bool)],
@@ -521,7 +516,6 @@ class BBoxHead(nn.Module):
             bboxes = scale_boxes(bboxes, scale_factor)
 
         # Get the inside tensor when `bboxes` is a box type
-        box_dim = bboxes.size(-1)
         bboxes = bboxes.view(num_rois, -1)
 
         if rcnn_test_cfg is None:
@@ -530,12 +524,10 @@ class BBoxHead(nn.Module):
             results.bboxes = bboxes
             results.scores = scores
         else:
-            det_bboxes, det_labels = multiclass_nms(
-                bboxes,
-                scores,
-                rcnn_test_cfg.score_thr,
-                rcnn_test_cfg.nms,
-                rcnn_test_cfg.max_per_img)
+            det_bboxes, det_labels = multiclass_nms(bboxes, scores,
+                                                    rcnn_test_cfg.score_thr,
+                                                    rcnn_test_cfg.nms,
+                                                    rcnn_test_cfg.max_per_img)
             results.bboxes = det_bboxes[:, :-1]
             results.scores = det_bboxes[:, -1]
             results.labels = det_labels
@@ -616,7 +608,7 @@ class BBoxHead(nn.Module):
                              '`num_classes` or `num_classes + 1`,'
                              f'but got {cls_scores.shape[-1]}.')
         labels = jt.where(labels == self.num_classes, cls_scores.argmax(1),
-                             labels)
+                          labels)
 
         img_ids = rois[:, 0].long().unique(sorted=True)
         assert img_ids.numel() <= len(batch_img_metas)
@@ -643,11 +635,8 @@ class BBoxHead(nn.Module):
 
         return results_list
 
-    def regress_by_class(self, 
-                         priors: jt.Var, 
-                         label: jt.Var,
-                         bbox_pred: jt.Var, 
-                         img_meta: dict) -> jt.Var:
+    def regress_by_class(self, priors: jt.Var, label: jt.Var,
+                         bbox_pred: jt.Var, img_meta: dict) -> jt.Var:
         """Regress the bbox for the predicted class. Used in Cascade R-CNN.
         Args:
             priors (Tensor): Priors from `rpn_head` or last stage
