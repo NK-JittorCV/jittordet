@@ -35,14 +35,14 @@ def multiclass_nms(mlvl_bboxes, mlvl_scores, score_thr, nms, max_per_img):
     else:
         mlvl_bboxes = mlvl_bboxes.unsqueeze(1)
         mlvl_bboxes = mlvl_bboxes.expand((mlvl_bboxes.size(0), n_class, 4))
-    for j in range(1, n_class):
+    for j in range(0, n_class-1):
         bbox_j = mlvl_bboxes[:, j, :]
         score_j = mlvl_scores[:, j:j + 1]
         mask = jt.where(score_j > score_thr)[0]
         bbox_j = bbox_j[mask, :]
         score_j = score_j[mask]
         dets = jt.concat([bbox_j, score_j], dim=1)
-        keep = jt.nms(dets, nms['iou_threshold'])
+        keep = jt.nms(dets, nms['thresh'])
         bbox_j = bbox_j[keep]
         score_j = score_j[keep]
         label_j = jt.ones_like(score_j).int32() * j

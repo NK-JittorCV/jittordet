@@ -7,3 +7,4 @@ from .necks import *  # noqa: F401, F403
 from .preprocessors import *  # noqa: F401, F403
 from .task_utils import *  # noqa: F401, F403
 from .utils import *  # noqa: F401, F403
+from .roi_heads import *

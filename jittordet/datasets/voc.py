@@ -26,6 +26,11 @@ class VocDataset(BaseDetDataset):
     }
 
     def load_data_list(self):
+        if isinstance(self.ann_file, str):
+            self.ann_file = [self.ann_file]
+        if isinstance(self.img_path, str):
+            self.img_path = [self.img_path]
+        assert len(self.ann_file) == len(self.img_path)
         assert self.metainfo.get('CLASSES', None) is not None, \
             'CLASSES in `VocDataset` can not be None.'
         self.cat2label = {
@@ -34,18 +39,20 @@ class VocDataset(BaseDetDataset):
         }
 
         data_list = []
-        for img_id in open(self.ann_file, 'r'):
-            img_id = img_id.strip()
-            file_name = osp.join(self.img_path, f'{img_id}.jpg')
-            xml_path = osp.join(self.ann_path, f'{img_id}.xml')
 
-            raw_img_info = {}
-            raw_img_info['img_id'] = img_id
-            raw_img_info['img_path'] = file_name
-            raw_img_info['xml_path'] = xml_path
+        for ann_file, img_path in zip(self.ann_file, self.img_path):
+            for img_id in open(ann_file, 'r'):
+                img_id = img_id.strip()
+                file_name = osp.join(img_path, 'JPEGImages', f'{img_id}.jpg')
+                xml_path = osp.join(img_path, 'Annotations', f'{img_id}.xml')
+                
+                raw_img_info = {}
+                raw_img_info['img_id'] = img_id
+                raw_img_info['img_path'] = file_name
+                raw_img_info['xml_path'] = xml_path
 
-            parsed_data_info = self.parse_data_info(raw_img_info)
-            data_list.append(parsed_data_info)
+                parsed_data_info = self.parse_data_info(raw_img_info)
+                data_list.append(parsed_data_info)
         return data_list
 
     def parse_data_info(self, img_info):

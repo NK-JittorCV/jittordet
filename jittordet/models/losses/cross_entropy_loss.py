@@ -9,6 +9,17 @@ from jittordet.engine import MODELS
 from .utils import weight_reduce_loss
 
 
+def binary_cross_entropy_with_logits(output, target, weight=None, pos_weight=None):
+    max_val = jt.clamp(-output,min_v=0)
+    if pos_weight is not None:
+        log_weight = (pos_weight-1)*target + 1
+        loss = (1-target)*output+(log_weight*(((-max_val).exp()+(-output - max_val).exp()).log()+max_val))
+    else:
+        loss = (1-target)*output+max_val+((-max_val).exp()+(-output -max_val).exp()).log()
+    if weight is not None:
+        loss *=weight
+    return loss
+
 def cross_entropy(pred,
                   label,
                   weight=None,
@@ -137,8 +148,9 @@ def binary_cross_entropy(pred,
 
     # weighted element-wise losses
     weight = weight.float()
-    loss = nn.binary_cross_entropy_with_logits(
-        pred, label.float(), pos_weight=class_weight, reduction='none')
+    loss = binary_cross_entropy_with_logits(pred, 
+                                            label.float(), 
+                                            pos_weight=class_weight)
     # do the reduction for the weighted loss
     loss = weight_reduce_loss(
         loss, weight, reduction=reduction, avg_factor=avg_factor)
@@ -195,7 +207,7 @@ def mask_cross_entropy(pred,
     inds = jt.arange(0, num_rois, dtype=jt.int64)
     pred_slice = pred[inds, label].squeeze(1)
     return nn.binary_cross_entropy_with_logits(
-        pred_slice, target, weight=class_weight, reduction='mean')[None]
+        pred_slice, target, weight=class_weight, size_average=True)[None]
 
 
 @MODELS.register_module()
