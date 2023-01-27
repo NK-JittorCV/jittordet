@@ -1,0 +1,19 @@
+train_loop:
+  type: EpochTrainLoop
+  max_epoch: 12
+  val_interval: 1
+
+val_loop:
+  type: ValLoop
+
+test_loop:
+  type: TestLoop
+
+scheduler:
+  - type: WarmUpLR
+    warmup_ratio: 0.001
+    warmup_iters: 500
+    warmup: linear
+  - type: MultiStepLR
+    milestones: [8, 11]
+    gamma: 0.1
