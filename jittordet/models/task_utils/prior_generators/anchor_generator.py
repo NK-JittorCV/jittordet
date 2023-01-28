@@ -256,8 +256,8 @@ class AnchorGenerator:
         # First create Range with the default dtype, than convert to
         # target `dtype` for onnx exporting.
 
-        shift_x = jt.arange(0, feat_w).to(dtype) * stride_w
-        shift_y = jt.arange(0, feat_h).to(dtype) * stride_h
+        shift_x = jt.arange(0, feat_w).astype(dtype) * stride_w
+        shift_y = jt.arange(0, feat_h).astype(dtype) * stride_h
 
         shift_xx, shift_yy = self._meshgrid(shift_x, shift_y)
         shifts = jt.stack([shift_xx, shift_yy, shift_xx, shift_yy], dim=-1)

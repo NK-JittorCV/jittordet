@@ -54,7 +54,7 @@ class SingleRoIExtractor(BaseRoIExtractor):
         scale = jt.sqrt((rois[:, 3] - rois[:, 1]) * (rois[:, 4] - rois[:, 2]))
         target_lvls = jt.floor(jt.log2(scale / self.finest_scale + 1e-6))
         target_lvls = target_lvls.clamp(
-            min_v=0, max_v=num_levels - 1).to(jt.int64)
+            min_v=0, max_v=num_levels - 1).astype(jt.int64)
         return target_lvls
 
     def execute(self,
@@ -76,7 +76,8 @@ class SingleRoIExtractor(BaseRoIExtractor):
         rois = rois.type_as(feats[0])
         out_size = self.roi_layers[0].output_size
         num_levels = len(feats)
-        roi_feats = jt.zeros(rois.size(0), self.out_channels, *out_size)
+        roi_feats = jt.zeros(
+            rois.size(0), self.out_channels, *out_size, dtype=feats[0].dtype)
 
         if num_levels == 1:
             if len(rois) == 0:

@@ -5,10 +5,9 @@ from typing import List, Tuple
 import jittor as jt
 
 from jittordet.engine import MODELS, TASK_UTILS, ConfigType
-from jittordet.ops.bbox_transforms import bbox2roi
 from jittordet.structures import DetDataSample, InstanceList
 from ..task_utils.samplers.sampling_result import SamplingResult
-from ..utils import empty_instances, unpack_gt_instances
+from ..utils import bbox2roi, empty_instances, unpack_gt_instances
 from .base_roi_head import BaseRoIHead
 
 
@@ -37,7 +36,6 @@ class StandardRoIHead(BaseRoIHead):
         self.bbox_roi_extractor = MODELS.build(bbox_roi_extractor)
         self.bbox_head = MODELS.build(bbox_head)
 
-    # TODO: Need to refactor later
     def execute(self, x: Tuple[jt.Var],
                 rpn_results_list: InstanceList) -> tuple:
         """Network forward process.

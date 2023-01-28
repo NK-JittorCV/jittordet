@@ -18,9 +18,8 @@ class BaseRoIHead(nn.Module, metaclass=ABCMeta):
                  bbox_head: OptConfigType = None,
                  shared_head: OptConfigType = None,
                  train_cfg: OptConfigType = None,
-                 test_cfg: OptConfigType = None,
-                 init_cfg: OptConfigType = None) -> None:
-        super().__init__(init_cfg=init_cfg)
+                 test_cfg: OptConfigType = None) -> None:
+        super().__init__()
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
         if shared_head is not None:

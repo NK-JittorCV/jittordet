@@ -80,7 +80,9 @@ class AssignResult:
         self_inds = jt.arange(1, len(gt_labels) + 1, dtype=jt.int64)
         self.gt_inds = jt.concat([self_inds, self.gt_inds])
 
-        self.max_overlaps = jt.concat(
-            [jt.ones(len(gt_labels)), self.max_overlaps])
+        self.max_overlaps = jt.concat([
+            jt.ones(len(gt_labels), dtype=self.max_overlaps.dtype),
+            self.max_overlaps
+        ])
 
         self.labels = jt.concat([gt_labels, self.labels])

@@ -88,9 +88,8 @@ class ConvFCBBoxHead(BBoxHead):
                 in_features=self.cls_last_dim, out_features=cls_channels)
             self.fc_cls = MODELS.build(cls_predictor_cfg_)
         if self.with_reg:
-            box_dim = self.bbox_coder.encode_size
-            out_dim_reg = box_dim if self.reg_class_agnostic else \
-                box_dim * self.num_classes
+            out_dim_reg = 4 if self.reg_class_agnostic else \
+                4 * self.num_classes
             reg_predictor_cfg_ = self.reg_predictor_cfg.copy()
             reg_predictor_cfg_.update(
                 in_features=self.reg_last_dim, out_features=out_dim_reg)
@@ -99,10 +98,8 @@ class ConvFCBBoxHead(BBoxHead):
     def init_weights(self):
         super().init_weights()
         for name, m in self.named_parameters():
-            if isinstance(m, nn.Conv2d):
-                if name in ['shared_fcs', 'cls_fcs', 'reg_fcs']:
-                    print(name)
-                    xavier_init(m, distribution='uniform')
+            if name in ['shared_fcs', 'cls_fcs', 'reg_fcs']:
+                xavier_init(m, distribution='uniform')
 
     def _add_conv_fc_branch(self,
                             num_branch_convs: int,

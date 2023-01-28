@@ -47,9 +47,8 @@ class RPNHead(AnchorHead):
         self.rpn_cls = nn.Conv2d(self.feat_channels,
                                  self.num_base_priors * self.cls_out_channels,
                                  1)
-        reg_dim = self.bbox_coder.encode_size
-        self.rpn_reg = nn.Conv2d(self.feat_channels,
-                                 self.num_base_priors * reg_dim, 1)
+        self.rpn_reg = nn.Conv2d(self.feat_channels, self.num_base_priors * 4,
+                                 1)
 
     def execute_single(self, x):
         """Forward feature of a single scale level.
@@ -125,8 +124,7 @@ class RPNHead(AnchorHead):
         for level_idx, (cls_score, bbox_pred, priors) in enumerate(
                 zip(cls_score_list, bbox_pred_list, mlvl_priors)):
             assert cls_score.shape[-2:] == bbox_pred.shape[-2:]
-            reg_dim = self.bbox_coder.encode_size
-            bbox_pred = bbox_pred.permute(1, 2, 0).reshape(-1, reg_dim)
+            bbox_pred = bbox_pred.permute(1, 2, 0).reshape(-1, 4)
             cls_score = cls_score.permute(1, 2,
                                           0).reshape(-1, self.cls_out_channels)
             if self.use_sigmoid_cls:

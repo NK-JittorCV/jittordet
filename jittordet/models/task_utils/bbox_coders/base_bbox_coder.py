@@ -12,8 +12,6 @@ class BaseBBoxCoder(metaclass=ABCMeta):
             box type data structure. Defaults to False.
     """
 
-    encode_size = 4
-
     @abstractmethod
     def encode(self, bboxes, gt_bboxes):
         """Encode deltas between bboxes and ground truth boxes."""

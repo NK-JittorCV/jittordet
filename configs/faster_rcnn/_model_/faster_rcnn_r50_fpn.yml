@@ -20,7 +20,7 @@ model:
     num_outs: 5
   rpn_head:
     type: RPNHead
-    num_classes: 80
+    num_classes: 1
     in_channels: 256
     num_convs: 4
     feat_channels: 256

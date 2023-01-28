@@ -7,9 +7,8 @@ import jittor.nn as nn
 from jittordet.engine import MODELS, TASK_UTILS, ConfigDict, ConfigType
 from jittordet.models.losses import accuracy
 from jittordet.models.task_utils.samplers.sampling_result import SamplingResult
-from jittordet.models.utils import empty_instances, multi_apply, normal_init
-from jittordet.ops.bbox_transforms import scale_boxes
-from jittordet.ops.nms import multiclass_nms
+from jittordet.models.utils import (empty_instances, multi_apply,
+                                    multiclass_nms, normal_init)
 from jittordet.structures import InstanceData, InstanceList
 
 
@@ -31,7 +30,6 @@ class BBoxHead(nn.Module):
             clip_border=True,
             target_means=[0., 0., 0., 0.],
             target_stds=[0.1, 0.1, 0.2, 0.2]),
-        predict_box_type: str = 'hbox',
         reg_class_agnostic: bool = False,
         reg_decoded_bbox: bool = False,
         reg_predictor_cfg: ConfigType = dict(type='Linear'),
@@ -50,7 +48,6 @@ class BBoxHead(nn.Module):
         self.roi_feat_area = self.roi_feat_size[0] * self.roi_feat_size[1]
         self.in_channels = in_channels
         self.num_classes = num_classes
-        self.predict_box_type = predict_box_type
         self.reg_class_agnostic = reg_class_agnostic
         self.reg_decoded_bbox = reg_decoded_bbox
         self.reg_predictor_cfg = reg_predictor_cfg
@@ -76,9 +73,7 @@ class BBoxHead(nn.Module):
                 in_features=in_channels, out_features=cls_channels)
             self.fc_cls = MODELS.build(cls_predictor_cfg_)
         if self.with_reg:
-            box_dim = self.bbox_coder.encode_size
-            out_dim_reg = box_dim if reg_class_agnostic else \
-                box_dim * num_classes
+            out_dim_reg = 4 if reg_class_agnostic else 4 * num_classes
             reg_predictor_cfg_ = self.reg_predictor_cfg.copy()
             reg_predictor_cfg_.update(
                 in_features=in_channels, out_features=out_dim_reg)
@@ -87,15 +82,10 @@ class BBoxHead(nn.Module):
 
     def init_weights(self):
         for name, m in self.named_parameters():
-            if isinstance(m, nn.Conv2d):
-                if name == 'fc_cls':
-                    print(name)
-                    if self.with_cls:
-                        normal_init(m, std=0.01)
-                if name == 'fc_reg':
-                    print(name)
-                    if self.with_reg:
-                        normal_init(m, std=0.001)
+            if name == 'fc_cls':
+                normal_init(m, std=0.01)
+            if name == 'fc_reg':
+                normal_init(m, std=0.001)
 
     # TODO: Create a SeasawBBoxHead to simplified logic in BBoxHead
     @property
@@ -181,11 +171,9 @@ class BBoxHead(nn.Module):
         # now use empty & fill because BG cat_id = num_classes,
         # FG cat_id = [0, num_classes-1]
         labels = jt.full((num_samples, ), self.num_classes, dtype=jt.int64)
-        reg_dim = pos_gt_bboxes.size(-1) if self.reg_decoded_bbox \
-            else self.bbox_coder.encode_size
         label_weights = jt.zeros(num_samples)
-        bbox_targets = jt.zeros(num_samples, reg_dim)
-        bbox_weights = jt.zeros(num_samples, reg_dim)
+        bbox_targets = jt.zeros(num_samples, 4)
+        bbox_weights = jt.zeros(num_samples, 4)
         if num_pos > 0:
             labels[:num_pos] = pos_gt_labels
             pos_weight = 1.0 if cfg.pos_weight <= 0 else cfg.pos_weight
@@ -379,16 +367,17 @@ class BBoxHead(nn.Module):
                     # already encoded coordinates to absolute format.
                     bbox_pred = self.bbox_coder.decode(rois[:, 1:], bbox_pred)
                 if self.reg_class_agnostic:
-                    pos_bbox_pred = bbox_pred.view(bbox_pred.size(0),
-                                                   -1)[pos_inds.to(bool)]
+                    pos_bbox_pred = bbox_pred.view(
+                        bbox_pred.size(0), -1)[pos_inds.astype(jt.bool)]
                 else:
                     pos_bbox_pred = bbox_pred.view(
                         bbox_pred.size(0), self.num_classes,
-                        -1)[pos_inds.to(bool), labels[pos_inds.to(bool)]]
+                        -1)[pos_inds.astype(jt.bool),
+                            labels[pos_inds.astype(jt.bool)]]
                 losses['loss_bbox'] = self.loss_bbox(
                     pos_bbox_pred,
-                    bbox_targets[pos_inds.to(bool)],
-                    bbox_weights[pos_inds.to(bool)],
+                    bbox_targets[pos_inds.astype(jt.bool)],
+                    bbox_weights[pos_inds.astype(jt.bool)],
                     avg_factor=bbox_targets.size(0),
                     reduction_override=reduction_override)
             else:
@@ -479,11 +468,7 @@ class BBoxHead(nn.Module):
         results = InstanceData()
         if roi.shape[0] == 0:
             return empty_instances([img_meta],
-                                   roi.device,
-                                   task_type='bbox',
                                    instance_results=[results],
-                                   box_type=self.predict_box_type,
-                                   use_box_type=False,
                                    num_classes=self.num_classes,
                                    score_per_cls=rcnn_test_cfg is None)[0]
 
@@ -501,19 +486,21 @@ class BBoxHead(nn.Module):
         if bbox_pred is not None:
             num_classes = 1 if self.reg_class_agnostic else self.num_classes
             roi = roi.repeat_interleave(num_classes, dim=0)
-            bbox_pred = bbox_pred.view(-1, self.bbox_coder.encode_size)
+            bbox_pred = bbox_pred.view(-1, 4)
             bboxes = self.bbox_coder.decode(
                 roi[..., 1:], bbox_pred, max_shape=img_shape)
         else:
             bboxes = roi[:, 1:].clone()
             if img_shape is not None and bboxes.size(-1) == 4:
-                bboxes[:, [0, 2]].clamp_(min=0, max=img_shape[1])
-                bboxes[:, [1, 3]].clamp_(min=0, max=img_shape[0])
+                bboxes[:, [0, 2]].clamp_(min_v=0, max_v=img_shape[1])
+                bboxes[:, [1, 3]].clamp_(min_v=0, max_v=img_shape[0])
 
         if rescale and bboxes.size(0) > 0:
             assert img_meta.get('scale_factor') is not None
-            scale_factor = [1 / s for s in img_meta['scale_factor']]
-            bboxes = scale_boxes(bboxes, scale_factor)
+            scale_factor = bboxes.new_tensor(img_meta['scale_factor']).repeat(
+                (1, 2))
+            bboxes = (bboxes.view(bboxes.size(0), -1, 4) / scale_factor).view(
+                bboxes.size()[0], -1)
 
         # Get the inside tensor when `bboxes` is a box type
         bboxes = bboxes.view(num_rois, -1)
@@ -524,12 +511,11 @@ class BBoxHead(nn.Module):
             results.bboxes = bboxes
             results.scores = scores
         else:
-            det_bboxes, det_labels = multiclass_nms(bboxes, scores,
-                                                    rcnn_test_cfg.score_thr,
-                                                    rcnn_test_cfg.nms,
-                                                    rcnn_test_cfg.max_per_img)
-            results.bboxes = det_bboxes[:, :-1]
-            results.scores = det_bboxes[:, -1]
+            det_bboxes, det_scores, det_labels = multiclass_nms(
+                bboxes, scores, rcnn_test_cfg.score_thr, rcnn_test_cfg.nms,
+                rcnn_test_cfg.max_per_img)
+            results.bboxes = det_bboxes
+            results.scores = det_scores
             results.labels = det_labels
         return results
 
@@ -630,7 +616,7 @@ class BBoxHead(nn.Module):
             pos_keep = 1 - pos_is_gts_
             keep_inds = pos_is_gts_.new_ones(num_rois)
             keep_inds[:len(pos_is_gts_)] = pos_keep
-            results = InstanceData(bboxes=bboxes[keep_inds.type_as(bool)])
+            results = InstanceData(bboxes=bboxes[keep_inds.astype(jt.bool)])
             results_list.append(results)
 
         return results_list
@@ -651,12 +637,11 @@ class BBoxHead(nn.Module):
         Returns:
             Tensor: Regressed bboxes, the same shape as input rois.
         """
-        reg_dim = self.bbox_coder.encode_size
         if not self.reg_class_agnostic:
-            label = label * reg_dim
-            inds = jt.stack([label + i for i in range(reg_dim)], 1)
+            label = label * 4
+            inds = jt.stack([label + i for i in range(4)], 1)
             bbox_pred = jt.gather(bbox_pred, 1, inds)
-        assert bbox_pred.size()[1] == reg_dim
+        assert bbox_pred.size()[1] == 4
 
         max_shape = img_meta['img_shape']
         regressed_bboxes = self.bbox_coder.decode(
