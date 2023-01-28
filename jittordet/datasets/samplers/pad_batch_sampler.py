@@ -15,33 +15,23 @@ class PadBatchSampler(BaseBatchSampler):
         self.shuffle = shuffle
         self.drop_last = drop_last
 
-    def __len__(self):
-        return self.batch_len
-
-    @property
-    def batch_len(self):
-        length = int((self.data_list_len - 0.5) // self.batch_size)
-        if not self.drop_last:
-            length += 1
-        return length
-
     def get_index_list(self, rng=None):
         if rng is None:
             rng = np.random.default_rng()
 
-        index = rng.permutation(self.data_list_len) if self.shuffle \
-            else np.arange(self.data_list_len)
+        index = rng.permutation(self.num_data_list) if self.shuffle \
+            else np.arange(self.num_data_list)
 
-        mod_size = self.data_list_len % self.batch_size
+        mod_size = self.num_data_list % self.total_bs
         if mod_size != 0:
             if self.drop_last:
                 index = index[:-mod_size]
             else:
-                padded_size = ceil(
-                    self.data_list_len / self.batch_size) * self.batch_size
+                padded_size = int(
+                    ceil(self.num_data_list / self.total_bs) * self.total_bs)
                 # repeat index to avoid data_list is shorter than batch size
-                repeat_num = int((self.batch_size - 0.5) //
-                                 self.data_list_len + 1)
+                repeat_num = int((self.total_bs - 0.5) // self.num_data_list +
+                                 1)
                 repeat_num = max(repeat_num, 2)
                 index = np.concatenate([index] * repeat_num)
                 index = index[:padded_size]
@@ -53,10 +43,5 @@ class PadBatchSampler(BaseBatchSampler):
             index = index.reshape(-1, self.batch_size)
             index = index[:, rank * real_bs:(rank + 1) * real_bs]
             index = index.flatten()
-            self.dataset.real_batch_size = real_bs
-        else:
-            self.dataset.real_batch_size = self.batch_size
 
-        self.dataset.real_len = len(index)
-        self.dataset.batch_len = self.batch_len
         return index

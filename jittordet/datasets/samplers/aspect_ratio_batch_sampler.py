@@ -11,65 +11,52 @@ class AspectRatioBatchSampler(BaseBatchSampler):
     def __init__(self, dataset, drop_last=False):
         super().__init__(dataset=dataset)
         self.drop_last = drop_last
-
-    def __len__(self):
-        return self.batch_len
-
-    @property
-    def batch_len(self):
-        length = int((self.data_list_len - 0.5) // self.batch_size)
-        if not self.drop_last:
-            length += 1
-        return length
+        # statstic different aspect ratios idx.
+        idx_bucket1, idx_bucket2 = [], []
+        for idx, data in enumerate(dataset.data_list):
+            if data['width'] > data['height']:
+                idx_bucket1.append(idx)
+            else:
+                idx_bucket2.append(idx)
+        self.idx_bucket1 = np.array(idx_bucket1)
+        self.idx_bucket2 = np.array(idx_bucket2)
 
     def get_index_list(self, rng=None):
         if rng is None:
             rng = np.random.default_rng()
 
-        aspect_ratio_idx1 = []
-        aspect_ratio_idx2 = []
-        for idx, data in enumerate(self.dataset.data_list):
-            if data['width'] > data['height']:
-                aspect_ratio_idx1.append(idx)
-            else:
-                aspect_ratio_idx2.append(idx)
-        aspect_ratio_idx1 = np.array(aspect_ratio_idx1)
-        aspect_ratio_idx2 = np.array(aspect_ratio_idx2)
-
         # shuffle
-        shuffle_idx = rng.permutation(aspect_ratio_idx1.size)
-        aspect_ratio_idx1 = aspect_ratio_idx1[shuffle_idx]
-        shuffle_idx = rng.permutation(aspect_ratio_idx2.size)
-        aspect_ratio_idx2 = aspect_ratio_idx2[shuffle_idx]
+        shuffle_idx = rng.permutation(self.idx_bucket1.size)
+        idx_bucket1 = self.idx_bucket1[shuffle_idx]
+        shuffle_idx = rng.permutation(self.idx_bucket2.size)
+        idx_bucket2 = self.idx_bucket2[shuffle_idx]
 
         # drop last size
         world_size = 1 if not jt.in_mpi else jt.world_size
-        real_bs = self.batch_size // world_size
-        assert real_bs * jt.world_size == self.batch_size
-        if aspect_ratio_idx1.size % real_bs != 0:
-            mod_size = aspect_ratio_idx1.size % real_bs
-            aspect_ratio_idx1 = aspect_ratio_idx1[:-mod_size]
-        aspect_ratio_idx1 = aspect_ratio_idx1.reshape(-1, real_bs)
-        if aspect_ratio_idx2.size % real_bs != 0:
-            mod_size = aspect_ratio_idx2.size % real_bs
-            aspect_ratio_idx2 = aspect_ratio_idx2[:-mod_size]
-        aspect_ratio_idx2 = aspect_ratio_idx2.reshape(-1, real_bs)
+        total_bs = self.total_bs
+        real_bs = int(total_bs // world_size)
+        assert real_bs * jt.world_size == total_bs
+        if idx_bucket1.size % real_bs != 0:
+            mod_size = idx_bucket1.size % real_bs
+            idx_bucket1 = idx_bucket1[:-mod_size]
+        idx_bucket1 = idx_bucket1.reshape(-1, real_bs)
+        if idx_bucket2.size % real_bs != 0:
+            mod_size = idx_bucket2.size % real_bs
+            idx_bucket2 = idx_bucket2[:-mod_size]
+        idx_bucket2 = idx_bucket2.reshape(-1, real_bs)
 
-        index = np.concatenate([aspect_ratio_idx1, aspect_ratio_idx2], axis=0)
+        index = np.concatenate([idx_bucket1, idx_bucket2], axis=0)
         shuffle_idx = rng.permutation(index.shape[0])
         index = index[shuffle_idx]
 
-        real_bs_num = self.batch_len * world_size
+        real_bs_num = len(self) * world_size
         repeat_num = int((real_bs_num - 0.5) // index.shape[0] + 1)
         index = np.concatenate([index] * repeat_num, axis=0)
         index = index[:real_bs_num]
 
         if jt.in_mpi:
-            index = index.reshape(-1, self.batch_size)
+            index = index.reshape(-1, total_bs)
             index = index[:, jt.rank * real_bs:(jt.rank + 1) * real_bs]
 
         index = index.flatten()
-        self.dataset.real_len = len(index)
-        self.dataset.batch_len = self.batch_len
-        self.dataset.real_batch_size = real_bs
         return index

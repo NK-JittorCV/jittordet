@@ -12,12 +12,12 @@ from .base import BaseDetDataset
 class VocDataset(BaseDetDataset):
 
     METAINFO = {
-        'CLASSES':
+        'classes':
         ('aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus', 'car', 'cat',
          'chair', 'cow', 'diningtable', 'dog', 'horse', 'motorbike', 'person',
          'pottedplant', 'sheep', 'sofa', 'train', 'tvmonitor'),
         # PALETTE is a list of color tuples, which is used for visualization.
-        'PALETTE': [(106, 0, 228), (119, 11, 32), (165, 42, 42), (0, 0, 192),
+        'palette': [(106, 0, 228), (119, 11, 32), (165, 42, 42), (0, 0, 192),
                     (197, 226, 255), (0, 60, 100), (0, 0, 142), (255, 77, 255),
                     (153, 69, 1), (120, 166, 157), (0, 182, 199),
                     (0, 226, 252), (182, 182, 255), (0, 0, 230), (220, 20, 60),
@@ -26,33 +26,26 @@ class VocDataset(BaseDetDataset):
     }
 
     def load_data_list(self):
-        if isinstance(self.ann_file, str):
-            self.ann_file = [self.ann_file]
-        if isinstance(self.img_path, str):
-            self.img_path = [self.img_path]
-        assert len(self.ann_file) == len(self.img_path)
-        assert self.metainfo.get('CLASSES', None) is not None, \
+        assert self.metainfo.get('classes', None) is not None, \
             'CLASSES in `VocDataset` can not be None.'
         self.cat2label = {
             cat: i
-            for i, cat in enumerate(self.metainfo['CLASSES'])
+            for i, cat in enumerate(self.metainfo['classes'])
         }
 
         data_list = []
+        for img_id in open(self.ann_file, 'r'):
+            img_id = img_id.strip()
+            img_path = osp.join(self.img_path, f'{img_id}.jpg')
+            xml_path = osp.join(self.xml_path, f'{img_id}.xml')
 
-        for ann_file, img_path in zip(self.ann_file, self.img_path):
-            for img_id in open(ann_file, 'r'):
-                img_id = img_id.strip()
-                file_name = osp.join(img_path, 'JPEGImages', f'{img_id}.jpg')
-                xml_path = osp.join(img_path, 'Annotations', f'{img_id}.xml')
+            raw_img_info = {}
+            raw_img_info['img_id'] = img_id
+            raw_img_info['img_path'] = img_path
+            raw_img_info['xml_path'] = xml_path
 
-                raw_img_info = {}
-                raw_img_info['img_id'] = img_id
-                raw_img_info['img_path'] = file_name
-                raw_img_info['xml_path'] = xml_path
-
-                parsed_data_info = self.parse_data_info(raw_img_info)
-                data_list.append(parsed_data_info)
+            parsed_data_info = self.parse_data_info(raw_img_info)
+            data_list.append(parsed_data_info)
         return data_list
 
     def parse_data_info(self, img_info):
@@ -80,7 +73,7 @@ class VocDataset(BaseDetDataset):
         for obj in raw_ann_info.findall('object'):
             instance = {}
             name = obj.find('name').text
-            if name not in self._metainfo['CLASSES']:
+            if name not in self._metainfo['classes']:
                 continue
             difficult = obj.find('difficult')
             difficult = 0 if difficult is None else int(difficult.text)

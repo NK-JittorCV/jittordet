@@ -53,9 +53,9 @@ class BaseDetDataset(Dataset):
 
     def __init__(self,
                  batch_size,
-                 num_works=0,
+                 num_workers=0,
                  data_root='',
-                 datasetwise_cfg=None,
+                 data_path=None,
                  metainfo=None,
                  filter_cfg=None,
                  test_mode=False,
@@ -64,7 +64,7 @@ class BaseDetDataset(Dataset):
                  max_refetch=100,
                  **kwargs):
         super().__init__(
-            batch_size=batch_size, num_workers=num_works, **kwargs)
+            batch_size=batch_size, num_workers=num_workers, **kwargs)
         self.data_root = data_root
         self.filter_cfg = copy.deepcopy(filter_cfg)
         self.test_mode = test_mode
@@ -73,7 +73,7 @@ class BaseDetDataset(Dataset):
         # load metainfo
         self._metainfo = self._load_metainfo(copy.deepcopy(metainfo))
         # datasetwise init
-        self.init_datasetwise(datasetwise_cfg)
+        self.init_datasetwise(data_path)
         # load data information
         self.data_list = self.load_data_list()
         # fliter illegal data
@@ -116,17 +116,24 @@ class BaseDetDataset(Dataset):
         for k, v in datasetwise_cfg.items():
             if hasattr(self, k):
                 raise RuntimeError(f'Attr {k} has been set in {type(self)}')
-            if isinstance(v, str):
-                if ('path' in k or 'file' in k) and not osp.isabs(v):
-                    v = osp.join(self.data_root, v)
-            elif isinstance(v, list):
-                if ('path' in k or 'file' in k):
-                    v = [
-                        osp.join(self.data_root, i) for i in v
-                        if not osp.isabs(i)
-                    ]
-            else:
-                raise NotImplementedError
+
+            def _join_data_root(value, data_root):
+                if isinstance(value, list):
+                    for i in range(len(value)):
+                        value[i] = _join_data_root(value[i], data_root)
+                elif isinstance(value, dict):
+                    for key in value.keys():
+                        value[key] = _join_data_root(value[key], data_root)
+                elif isinstance(value, str):
+                    if not osp.isabs(value):
+                        value = osp.join(data_root, value)
+                else:
+                    raise TypeError(
+                        'The contents in data_path should be str type.')
+                return value
+
+            v = _join_data_root(v, self.data_root)
+
             setattr(self, k, v)
 
     def load_data_list(self):
@@ -135,23 +142,26 @@ class BaseDetDataset(Dataset):
     def filter_data(self):
         return self.data_list
 
-    def __getitem__(self, idx):
+    def prepare_data(self, idx):
         data_info = copy.deepcopy(self.data_list[idx])
-
         if idx >= 0:
             data_info['sample_idx'] = idx
         else:
             data_info['sample_idx'] = len(self.data_list) + idx
 
+        data = self.transforms(data_info)
+        return data
+
+    def __getitem__(self, idx):
         if self.test_mode:
-            data = self.transforms(data_info)
+            data = self.prepare_data(idx)
             if data is None:
                 raise Exception('Test time pipline should not get `None` '
                                 'data_sample')
             return data
 
         for _ in range(self.max_refetch + 1):
-            data = self.transforms(data_info)
+            data = self.prepare_data(idx)
             # Broken images or random augmentations may cause the returned data
             # to be None
             if data is None:
@@ -176,7 +186,12 @@ class BaseDetDataset(Dataset):
 
     def _get_index_list(self):
         if self.batch_sampler is not None:
-            return self.batch_sampler.get_index_list(rng=self._shuffle_rng)
+            index = self.batch_sampler.get_index_list(rng=self._shuffle_rng)
+            self.real_len = len(index)
+            self.batch_len = len(self.batch_sampler)
+            world_size = 1 if not jt.in_mpi else jt.world_size
+            self.real_batch_size = int(self.batch_size // world_size)
+            return index
         else:
             return super()._get_index_list()
 

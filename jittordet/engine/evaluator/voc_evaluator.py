@@ -47,10 +47,7 @@ class VocEvaluator(BaseEvaluator):
                  scale_ranges: Optional[List[tuple]] = None,
                  metric: Union[str, List[str]] = 'mAP',
                  proposal_nums: Sequence[int] = (100, 300, 1000),
-                 eval_mode: str = '11points',
-                 collect_device: str = 'cpu',
-                 prefix: Optional[str] = None) -> None:
-        # super().__init__(collect_device=collect_device, prefix=prefix)
+                 eval_mode: str = '11points') -> None:
         self.iou_thrs = [iou_thrs] if isinstance(iou_thrs, float) \
             else iou_thrs
         self.scale_ranges = scale_ranges
@@ -92,7 +89,7 @@ class VocEvaluator(BaseEvaluator):
             pred_labels = pred['labels'].cpu().numpy()
 
             dets = []
-            for label in range(len(dataset.metainfo['CLASSES'])):
+            for label in range(len(dataset.metainfo['classes'])):
                 index = np.where(pred_labels == label)[0]
                 pred_bbox_scores = np.hstack(
                     [pred_bboxes[index], pred_scores[index].reshape((-1, 1))])
@@ -141,7 +138,7 @@ class VocEvaluator(BaseEvaluator):
                 dataset_name = 'voc07'
             else:
                 dataset_name = 'voc12'
-            class_names = dataset.metainfo['CLASSES']
+            class_names = dataset.metainfo['classes']
 
             mean_aps = []
             for iou_thr in self.iou_thrs:

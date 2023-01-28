@@ -1,4 +1,4 @@
-from abc import ABCMeta, abstractmethod, abstractproperty
+from abc import ABCMeta, abstractmethod
 
 from jittordet.engine import BATCH_SAMPLERS
 
@@ -7,23 +7,14 @@ from jittordet.engine import BATCH_SAMPLERS
 class BaseBatchSampler(metaclass=ABCMeta):
 
     def __init__(self, dataset):
-        self.dataset = dataset
+        self.total_bs = dataset.batch_size
+        self.num_data_list = len(dataset.data_list)
 
-    @property
-    def data_list_len(self):
-        return len(self.dataset.data_list)
-
-    @property
-    def batch_size(self):
-        return self.dataset.batch_size
-
-    @abstractproperty
-    def batch_len(self):
-        pass
-
-    @abstractmethod
     def __len__(self):
-        pass
+        length = int((self.num_data_list - 0.5) // self.total_bs)
+        if hasattr(self, 'drop_last') and not self.drop_last:
+            length += 1
+        return length
 
     @abstractmethod
     def get_index_list(self, rng=None):

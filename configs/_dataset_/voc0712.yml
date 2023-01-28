@@ -1,38 +1,54 @@
 data_root: $DATA_ROOT:data/VOCdevkit/
 num_gpus: $NUM_GPUS:8
 
+train_transforms: &train_transforms
+  - type: 'LoadImageFromFile'
+  - type: 'LoadAnnotations'
+    with_bbox: true
+  - type: 'Resize'
+    scale: (1000, 600)
+    keep_ratio: true
+  - type: 'RandomFlip'
+    prob: 0.5
+  - type: 'PackDetInputs'
+
 train_dataset:
-  type: VocDataset
+  type: ConcatDataset
   batch_size: <2 * num_gpus>
-  num_works: <2 * num_gpus>
-  data_root: <data_root>
-  datasetwise_cfg:
-    ann_file: ['VOC2007/ImageSets/Main/trainval.txt', 'VOC2012/ImageSets/Main/trainval.txt']
-    img_path: ['VOC2007/', 'VOC2012/']
-  filter_cfg:
-    filter_empty_gt: true
-    min_size: 32
+  num_workers: <1 * num_gpus>
+  datasets:
+    - type: VocDataset
+      data_root: <data_root>
+      data_path:
+        ann_file: 'VOC2007/ImageSets/Main/trainval.txt'
+        img_path: 'VOC2007/JPEGImages'
+        xml_path: 'VOC2007/Annotations'
+      filter_cfg:
+        filter_empty_gt: true
+        min_size: 32
+      transforms: *train_transforms
+    - type: VocDataset
+      data_root: <data_root>
+      data_path:
+        ann_file: 'VOC2012/ImageSets/Main/trainval.txt'
+        img_path: 'VOC2012/JPEGImages'
+        xml_path: 'VOC2012/Annotations'
+      filter_cfg:
+        filter_empty_gt: true
+        min_size: 32
+      transforms: *train_transforms
   batch_sampler:
     type: AspectRatioBatchSampler
-  transforms:
-    - type: 'LoadImageFromFile'
-    - type: 'LoadAnnotations'
-      with_bbox: true
-    - type: 'Resize'
-      scale: (1000, 600)
-      keep_ratio: true
-    - type: 'RandomFlip'
-      prob: 0.5
-    - type: 'PackDetInputs'
 
 val_dataset: &val_dataset
   type: VocDataset
   batch_size: <1 * num_gpus>
-  num_works: <2 * num_gpus>
+  num_workers: <1 * num_gpus>
   data_root: <data_root>
-  datasetwise_cfg:
+  data_path:
     ann_file: 'VOC2007/ImageSets/Main/test.txt'
-    img_path: 'VOC2007/'
+    img_path: 'VOC2007/JPEGImages'
+    xml_path: 'VOC2007/Annotations'
   test_mode: true
   batch_sampler:
     type: PadBatchSampler
