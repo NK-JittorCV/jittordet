@@ -8,9 +8,9 @@ import jittor.nn as nn
 
 from jittordet.engine import MODELS, ConfigDict
 from jittordet.ops.bbox_transforms import scale_boxes
-from jittordet.structures import InstanceData
+from jittordet.structures import InstanceData, InstanceList, OptInstanceList
 from ..layers import ConvModule
-from ..utils.nms import batched_nms
+from ..utils import batched_nms, normal_init
 from .anchor_head import AnchorHead
 
 
@@ -21,6 +21,11 @@ class RPNHead(AnchorHead):
         self.num_convs = num_convs
         assert num_classes == 1
         super(RPNHead, self).__init__(num_classes, in_channels, **kwargs)
+
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv):
+                normal_init(m, std=0.01)
 
     def _init_layers(self):
         """Initialize layers of the head."""
@@ -65,6 +70,39 @@ class RPNHead(AnchorHead):
         rpn_cls_score = self.rpn_cls(x)
         rpn_bbox_pred = self.rpn_reg(x)
         return rpn_cls_score, rpn_bbox_pred
+
+    def loss_by_feat(self,
+                     cls_scores: List[jt.Var],
+                     bbox_preds: List[jt.Var],
+                     batch_gt_instances: InstanceList,
+                     batch_img_metas: List[dict],
+                     batch_gt_instances_ignore: OptInstanceList = None) \
+            -> dict:
+        """Calculate the loss based on the features extracted by the detection
+        head.
+        Args:
+            cls_scores (list[Tensor]): Box scores for each scale level,
+                has shape (N, num_anchors * num_classes, H, W).
+            bbox_preds (list[Tensor]): Box energies / deltas for each scale
+                level with shape (N, num_anchors * 4, H, W).
+            batch_gt_instances (list[obj:InstanceData]): Batch of gt_instance.
+                It usually includes ``bboxes`` and ``labels`` attributes.
+            batch_img_metas (list[dict]): Meta information of each image, e.g.,
+                image size, scaling factor, etc.
+            batch_gt_instances_ignore (list[obj:InstanceData], Optional):
+                Batch of gt_instances_ignore. It includes ``bboxes`` attribute
+                data that is ignored during training and testing.
+        Returns:
+            dict[str, Tensor]: A dictionary of loss components.
+        """
+        losses = super().loss_by_feat(
+            cls_scores,
+            bbox_preds,
+            batch_gt_instances,
+            batch_img_metas,
+            batch_gt_instances_ignore=batch_gt_instances_ignore)
+        return dict(
+            loss_rpn_cls=losses['loss_cls'], loss_rpn_bbox=losses['loss_bbox'])
 
     def _predict_by_feat_single(self,
                                 cls_score_list: List[jt.Var],
@@ -148,11 +186,11 @@ class RPNHead(AnchorHead):
         if results.bboxes.numel() > 0:
             bboxes = results.bboxes
             # TODO batched_nms
-            det_bboxes, _, keep_idxs = batched_nms(bboxes, results.scores,
+            _, det_scores, keep_idxs = batched_nms(bboxes, results.scores,
                                                    results.level_ids, cfg.nms)
             results = results[keep_idxs]
             # some nms would reweight the score, such as softnms
-            results.scores = det_bboxes[:, -1]
+            results.scores = det_scores
             results = results[:cfg.max_per_img]
             # TODO: This would unreasonably show the 0th class label
             #  in visualization

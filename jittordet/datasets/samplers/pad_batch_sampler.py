@@ -38,9 +38,9 @@ class PadBatchSampler(BaseBatchSampler):
 
         if jt.in_mpi:
             rank, world_size = jt.rank, jt.world_size
-            real_bs = self.batch_size // world_size
-            assert real_bs * world_size == self.batch_size
-            index = index.reshape(-1, self.batch_size)
+            real_bs = int(self.total_bs // world_size)
+            assert real_bs * world_size == self.total_bs
+            index = index.reshape(-1, self.total_bs)
             index = index[:, rank * real_bs:(rank + 1) * real_bs]
             index = index.flatten()
 
