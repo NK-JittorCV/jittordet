@@ -1,37 +1,10 @@
 # Modified from OpenMMLab. mmdet/models/losses/focal_loss.py
 # Copyright (c) OpenMMLab. All rights reserved.
-import jittor as jt
 import jittor.nn as nn
 
 from jittordet.engine import MODELS
+from .cross_entropy_loss import binary_cross_entropy_with_logits
 from .utils import weight_reduce_loss
-
-
-def binary_cross_entropy_with_logits(output,
-                                     target,
-                                     weight=None,
-                                     pos_weight=None,
-                                     reduction='mean'):
-    max_val = jt.clamp(-output, min_v=0)
-    if pos_weight is not None:
-        log_weight = (pos_weight - 1) * target + 1
-        loss = (1 - target) * output + (
-            log_weight * (((-max_val).exp() +
-                           (-output - max_val).exp()).log() + max_val))
-    else:
-        loss = (1 - target) * output + max_val + (
-            (-max_val).exp() + (-output - max_val).exp()).log()
-    if weight is not None:
-        loss *= weight
-
-    if reduction == 'mean':
-        return loss.mean()
-    elif reduction == 'sum':
-        return loss.sum()
-    elif reduction == 'none':
-        return loss
-    else:
-        raise RuntimeError(f'Got invalid reduction, {reduction}')
 
 
 # This method is only for debugging

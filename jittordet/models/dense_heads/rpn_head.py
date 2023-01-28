@@ -7,7 +7,6 @@ import jittor as jt
 import jittor.nn as nn
 
 from jittordet.engine import MODELS, ConfigDict
-from jittordet.ops.bbox_transforms import scale_boxes
 from jittordet.structures import InstanceData, InstanceList, OptInstanceList
 from ..layers import ConvModule
 from ..utils import batched_nms, normal_init
@@ -172,8 +171,8 @@ class RPNHead(AnchorHead):
         assert with_nms, '`with_nms` must be True in RPNHead'
         if rescale:
             assert img_meta.get('scale_factor') is not None
-            scale_factor = [1 / s for s in img_meta['scale_factor']]
-            results.bboxes = scale_boxes(results.bboxes, scale_factor)
+            results.bboxes /= results.bboxes.new_tensor(
+                img_meta['scale_factor']).repeat((1, 2))
 
         # filter small size bboxes
         if cfg.get('min_bbox_size', -1) >= 0:

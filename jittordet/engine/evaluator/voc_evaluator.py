@@ -48,6 +48,7 @@ class VocEvaluator(BaseEvaluator):
                  metric: Union[str, List[str]] = 'mAP',
                  proposal_nums: Sequence[int] = (100, 300, 1000),
                  eval_mode: str = '11points') -> None:
+        self.results = []
         self.iou_thrs = [iou_thrs] if isinstance(iou_thrs, float) \
             else iou_thrs
         self.scale_ranges = scale_ranges
@@ -78,15 +79,14 @@ class VocEvaluator(BaseEvaluator):
             data_samples (Sequence[dict]): A batch of data samples that
                 contain annotations and predictions.
         """
-        self.results = []
         for data_sample in data_samples:
             if isinstance(data_sample, BaseDataElement):
                 data_sample = data_sample.to_dict()
 
             pred = data_sample['pred_instances']
-            pred_bboxes = pred['bboxes'].cpu().numpy()
-            pred_scores = pred['scores'].cpu().numpy()
-            pred_labels = pred['labels'].cpu().numpy()
+            pred_bboxes = pred['bboxes'].numpy()
+            pred_scores = pred['scores'].numpy()
+            pred_labels = pred['labels'].numpy()
 
             dets = []
             for label in range(len(dataset.metainfo['classes'])):
