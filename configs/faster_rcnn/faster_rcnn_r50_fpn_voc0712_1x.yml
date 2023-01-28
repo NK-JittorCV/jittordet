@@ -2,5 +2,5 @@ _base_:
   - ../_dataset_/voc0712.yml
   - ../_common_/default_setting.yml
   - ../_common_/loop_1x.yml
-  - ../_common_/sgd_0_01.yml
+  - ../_common_/sgd_0_02.yml
   - ./_model_/faster_rcnn_r50_fpn.yml
