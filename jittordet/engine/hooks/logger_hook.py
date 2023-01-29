@@ -178,13 +178,10 @@ class LoggerHook(BaseHook):
 
         if self.every_n_interval(batch_idx, self.interval):
             log_str = self.format_train_log_str(runner, batch_idx)
-            if jt.rank == 0:
-                runner.logger.info(log_str)
+            runner.logger.info(log_str)
 
         if self.every_n_interval(batch_idx, self.interval_exp_name):
-            if jt.rank == 0:
-                runner.logger.info(
-                    f'experiment name: {runner.experiment_name}')
+            runner.logger.info(f'experiment name: {runner.experiment_name}')
 
     def after_val_iter(self, runner, batch_idx, data_batch=None, outputs=None):
         iter_time = time.time() - self.val_iter_start_time
@@ -192,13 +189,10 @@ class LoggerHook(BaseHook):
 
         if self.every_n_interval(batch_idx, self.interval):
             log_str = self.format_test_val_log_str(runner, batch_idx, 'val')
-            if jt.rank == 0:
-                runner.logger.info(log_str)
+            runner.logger.info(log_str)
 
         if self.every_n_interval(batch_idx, self.interval_exp_name):
-            if jt.rank == 0:
-                runner.logger.info(
-                    f'experiment name: {runner.experiment_name}')
+            runner.logger.info(f'experiment name: {runner.experiment_name}')
 
     def after_test_iter(self,
                         runner,
@@ -210,22 +204,19 @@ class LoggerHook(BaseHook):
 
         if self.every_n_interval(batch_idx, self.interval):
             log_str = self.format_test_val_log_str(runner, batch_idx, 'test')
-            if jt.rank == 0:
-                runner.logger.info(log_str)
+            runner.logger.info(log_str)
 
         if self.every_n_interval(batch_idx, self.interval_exp_name):
-            if jt.rank == 0:
-                runner.logger.info(
-                    f'experiment name: {runner.experiment_name}')
+            runner.logger.info(f'experiment name: {runner.experiment_name}')
 
     def after_val_epoch(self, runner, metrics=None):
         log_str = self.format_metrics(metrics)
-        if jt.rank == 0 and log_str is not None:
+        if log_str is not None:
             runner.logger.info(log_str)
 
     def after_test_epoch(self, runner, metrics=None):
         log_str = self.format_metrics(metrics)
-        if jt.rank == 0 and log_str is not None:
+        if log_str is not None:
             runner.logger.info(log_str)
 
     def format_metrics(self, metrics):

@@ -1,7 +1,5 @@
 import os.path as osp
 
-import jittor as jt
-
 from ..register import HOOKS
 from .base_hook import BaseHook
 
@@ -29,9 +27,7 @@ class CheckpointHook(BaseHook):
             ckpt_filepath = osp.join(runner.log_dir,
                                      f'epoch_{cur_epoch + 1}.pkl')
             runner.save_checkpoint(ckpt_filepath)
-
-            if jt.rank == 0:
-                runner.logger.info(f'save checkpoint to {ckpt_filepath}')
+            runner.logger.info(f'save checkpoint to {ckpt_filepath}')
 
     def after_train_iter(self,
                          runner,
@@ -51,6 +47,4 @@ class CheckpointHook(BaseHook):
             ckpt_filepath = osp.join(runner.log_dir,
                                      f'iter_{cur_iter + 1}.pkl')
             runner.save_checkpoint(ckpt_filepath)
-
-            if jt.rank == 0:
-                runner.logger.info(f'save checkpoint to {ckpt_filepath}')
+            runner.logger.info(f'save checkpoint to {ckpt_filepath}')

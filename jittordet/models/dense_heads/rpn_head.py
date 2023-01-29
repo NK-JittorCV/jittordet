@@ -169,8 +169,9 @@ class RPNHead(AnchorHead):
         assert with_nms, '`with_nms` must be True in RPNHead'
         if rescale:
             assert img_meta.get('scale_factor') is not None
-            results.bboxes /= results.bboxes.new_tensor(
-                img_meta['scale_factor']).repeat((1, 2))
+            results.bboxes /= jt.array(
+                img_meta['scale_factor'], dtype=results.bboxes.dtype).repeat(
+                    (1, 2))
 
         # filter small size bboxes
         if cfg.get('min_bbox_size', -1) >= 0:

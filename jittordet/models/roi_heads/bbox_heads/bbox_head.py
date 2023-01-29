@@ -497,8 +497,8 @@ class BBoxHead(nn.Module):
 
         if rescale and bboxes.size(0) > 0:
             assert img_meta.get('scale_factor') is not None
-            scale_factor = bboxes.new_tensor(img_meta['scale_factor']).repeat(
-                (1, 2))
+            scale_factor = jt.array(
+                img_meta['scale_factor'], dtype=bboxes.dtype).repeat((1, 2))
             bboxes = (bboxes.view(bboxes.size(0), -1, 4) / scale_factor).view(
                 bboxes.size()[0], -1)
 

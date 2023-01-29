@@ -150,7 +150,7 @@ def multiclass_nms(multi_bboxes: jt.Var,
         scores = scores * score_factors
 
     # NonZero not supported  in TensorRT
-    inds = valid_mask.nonzero(as_tuple=False).squeeze(1)
+    inds = valid_mask.nonzero().squeeze(1)
     bboxes, scores, labels = bboxes[inds], scores[inds], labels[inds]
 
     if bboxes.numel() == 0:
