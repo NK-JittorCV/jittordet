@@ -46,7 +46,7 @@ class Runner:
                  cfg=None):
         # setup work dir
         self._work_dir = osp.abspath(work_dir)
-        if not osp.exists(self._work_dir):
+        if not osp.exists(self._work_dir) and jt.rank == 0:
             os.makedirs(self._work_dir)
 
         # hold on original configs

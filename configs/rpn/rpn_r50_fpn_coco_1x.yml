@@ -1,0 +1,10 @@
+_base_:
+  - ../_dataset_/coco_detection.yml
+  - ../_common_/default_setting.yml
+  - ../_common_/loop_1x.yml
+  - ../_common_/sgd_0_02.yml
+  - ./_model_/rpn_r50_fpn.yml
+
+val_evaluator: &val_evaluator
+  metric: proposal_fast
+test_evaluator: *val_evaluator
