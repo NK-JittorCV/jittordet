@@ -132,8 +132,8 @@ class CocoEvaluator(BaseEvaluator):
         gt_bboxes = []
         pred_bboxes = [result['bboxes'] for result in results]
         for i in range(len(self.img_ids)):
-            ann_ids = self._coco_api.get_ann_ids(img_ids=self.img_ids[i])
-            ann_info = self._coco_api.load_anns(ann_ids)
+            ann_ids = self._coco_api.getAnnIds(imgIds=self.img_ids[i])
+            ann_info = self._coco_api.loadAnns(ann_ids)
             if len(ann_info) == 0:
                 gt_bboxes.append(np.zeros((0, 4)))
                 continue

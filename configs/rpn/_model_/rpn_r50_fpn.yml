@@ -53,7 +53,7 @@ model:
         num: 256
         pos_fraction: 0.5
         neg_pos_ub: -1
-        add_get_as_proposals: false
+        add_gt_as_proposals: false
       allowed_border: -1
       pos_weight: -1
   test_cfg:

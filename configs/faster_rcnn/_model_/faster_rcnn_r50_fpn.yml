@@ -81,7 +81,7 @@ model:
         num: 256
         pos_fraction: 0.5
         neg_pos_ub: -1
-        add_get_as_proposals: false
+        add_gt_as_proposals: false
       allowed_border: -1
       pos_weight: -1
     rpn_proposal:
@@ -104,7 +104,7 @@ model:
         num: 512
         pos_fraction: 0.25
         neg_pos_ub: -1
-        add_get_as_proposals: true
+        add_gt_as_proposals: true
       pos_weight: -1
   test_cfg:
     rpn:
