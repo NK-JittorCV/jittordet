@@ -15,7 +15,7 @@ model:
     pretrained: 'jittorhub://resnet50.pkl'
   neck:
     type: FPN
-    in_channels: [156, 512, 1024, 2048]
+    in_channels: [256, 512, 1024, 2048]
     out_channels: 256
     start_level: 1
     add_extra_convs: on_input

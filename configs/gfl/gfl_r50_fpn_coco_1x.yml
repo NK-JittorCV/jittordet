@@ -1,0 +1,6 @@
+_base_:
+  - ../_dataset_/coco_detection.yml
+  - ../_common_/default_setting.yml
+  - ../_common_/loop_1x.yml
+  - ../_common_/sgd_0_01.yml
+  - ./_model_/gfl_r50_fpn.yml
