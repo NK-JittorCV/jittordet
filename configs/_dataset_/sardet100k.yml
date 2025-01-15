@@ -1,0 +1,80 @@
+data_root: $DATA_ROOT:data/SARDet-100K/
+num_gpus: $NUM_GPUS:8
+
+train_dataset:
+  type: Sardet100k
+  batch_size: <2 * num_gpus>
+  num_workers: <2 * num_gpus>
+  data_root: <data_root>
+  data_path:
+    ann_file: Annotations/train.json
+    img_path: JPEGImages
+  filter_cfg:
+    filter_empty_gt: true
+    min_size: 32
+  batch_sampler:
+    type: AspectRatioBatchSampler
+  transforms:
+    - type: 'LoadImageFromFile'
+    - type: 'LoadAnnotations'
+      with_bbox: true
+    - type: 'Resize'
+      scale: (800, 800)
+      keep_ratio: False
+    - type: 'RandomFlip'
+      prob: 0.5
+    - type: 'PackDetInputs'
+
+val_dataset: &val_dataset
+  type: Sardet100k
+  batch_size: <1 * num_gpus>
+  num_workers: <1 * num_gpus>
+  data_root: <data_root>
+  data_path:
+    ann_file: Annotations/val.json
+    img_path: JPEGImages
+  test_mode: true
+  batch_sampler:
+    type: PadBatchSampler
+  transforms:
+    - type: 'LoadImageFromFile'
+    - type: 'LoadAnnotations'
+      with_bbox: true
+    - type: 'Resize'
+      scale: (800, 800)
+      keep_ratio: true
+    - type: 'PackDetInputs'
+      meta_keys: [img_id, img_path, ori_shape, img_shape, 'scale_factor', 'sample_idx']
+
+test_dataset: 
+  type: Sardet100k
+  batch_size: <1 * num_gpus>
+  num_workers: <1 * num_gpus>
+  data_root: <data_root>
+  data_path:
+    ann_file: Annotations/test.json
+    img_path: JPEGImages
+  test_mode: true
+  batch_sampler:
+    type: PadBatchSampler
+  transforms:
+    - type: 'LoadImageFromFile'
+    - type: 'LoadAnnotations'
+      with_bbox: true
+    - type: 'Resize'
+      scale: (800, 800)
+      keep_ratio: true
+    - type: 'PackDetInputs'
+      meta_keys: [img_id, img_path, ori_shape, img_shape, 'scale_factor', 'sample_idx']
+
+val_evaluator: &val_evaluator
+  type: CocoEvaluator
+  ann_file: <data_root + "Annotations/val.json">
+  metric: bbox
+  format_only: false
+
+test_evaluator: 
+  type: CocoEvaluator
+  ann_file: <data_root + "Annotations/test.json">
+  metric: bbox
+  format_only: false
